@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS t_link (
+    id BIGINT AUTO_INCREMENT PRIMARY KEY COMMENT '主键ID',
+    name VARCHAR(100) NOT NULL COMMENT '链接名称',
+    url VARCHAR(500) NOT NULL COMMENT '链接地址',
+    description VARCHAR(500) DEFAULT '' COMMENT '链接描述',
+    icon VARCHAR(500) DEFAULT '' COMMENT '图标URL',
+    sort_order INT DEFAULT 0 NOT NULL COMMENT '排序值',
+    is_active TINYINT(1) DEFAULT 1 NOT NULL COMMENT '是否启用',
+    create_time DATETIME DEFAULT CURRENT_TIMESTAMP NOT NULL COMMENT '创建时间',
+    update_time DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP NOT NULL COMMENT '更新时间',
+    INDEX idx_sort_order (sort_order),
+    INDEX idx_is_active (is_active),
+    UNIQUE INDEX uk_url (url)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='友情链接表';
