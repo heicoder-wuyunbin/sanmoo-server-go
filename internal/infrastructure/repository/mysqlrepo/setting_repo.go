@@ -239,7 +239,12 @@ ON DUPLICATE KEY UPDATE privacy_policy = VALUES(privacy_policy), updated_by = VA
 			qiniuDomain, _ := storage["upload_qiniu_domain"].(string)
 			qiniuAccessKey, _ := storage["upload_qiniu_access_key"].(string)
 			qiniuSecretKey, _ := storage["upload_qiniu_secret_key"].(string)
-			r.setUploadStorageConfig(strings.TrimSpace(strategy), strings.TrimSpace(dir), strings.TrimSpace(prefix), strings.TrimSpace(qiniuBucket), strings.TrimSpace(qiniuDomain), strings.TrimSpace(qiniuAccessKey), strings.TrimSpace(qiniuSecretKey))
+			aliyunEndpoint, _ := storage["upload_aliyun_endpoint"].(string)
+			aliyunBucket, _ := storage["upload_aliyun_bucket"].(string)
+			aliyunDomain, _ := storage["upload_aliyun_domain"].(string)
+			aliyunAccessKey, _ := storage["upload_aliyun_access_key"].(string)
+			aliyunSecretKey, _ := storage["upload_aliyun_secret_key"].(string)
+			r.setUploadStorageConfig(strings.TrimSpace(strategy), strings.TrimSpace(dir), strings.TrimSpace(prefix), strings.TrimSpace(qiniuBucket), strings.TrimSpace(qiniuDomain), strings.TrimSpace(qiniuAccessKey), strings.TrimSpace(qiniuSecretKey), strings.TrimSpace(aliyunEndpoint), strings.TrimSpace(aliyunBucket), strings.TrimSpace(aliyunDomain), strings.TrimSpace(aliyunAccessKey), strings.TrimSpace(aliyunSecretKey))
 		}
 		if len(s.EmailConfig) > 0 {
 			b, err := json.Marshal(s.EmailConfig)
@@ -436,7 +441,7 @@ func (r *Repository) UpdateStorageConfig(ctx context.Context, cfg domsetting.Sto
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		storage := convertKeysCamelToSnake(map[string]any(cfg))
 		storage["updated_by"] = operator
-		validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_qiniu_access_key", "upload_qiniu_secret_key", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "config_version", "updated_by"}
+		validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_qiniu_access_key", "upload_qiniu_secret_key", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "upload_aliyun_access_key", "upload_aliyun_secret_key", "config_version", "updated_by"}
 		filteredStorage := filterValidFields(storage, validStorageFields)
 		if len(filteredStorage) > 0 {
 			if err := tx.Table("t_blog_storage_config").Where("id=1").Updates(filteredStorage).Error; err != nil {
@@ -450,7 +455,12 @@ func (r *Repository) UpdateStorageConfig(ctx context.Context, cfg domsetting.Sto
 		qiniuDomain, _ := storage["upload_qiniu_domain"].(string)
 		qiniuAccessKey, _ := storage["upload_qiniu_access_key"].(string)
 		qiniuSecretKey, _ := storage["upload_qiniu_secret_key"].(string)
-		r.setUploadStorageConfig(strings.TrimSpace(strategy), strings.TrimSpace(dir), strings.TrimSpace(prefix), strings.TrimSpace(qiniuBucket), strings.TrimSpace(qiniuDomain), strings.TrimSpace(qiniuAccessKey), strings.TrimSpace(qiniuSecretKey))
+		aliyunEndpoint, _ := storage["upload_aliyun_endpoint"].(string)
+		aliyunBucket, _ := storage["upload_aliyun_bucket"].(string)
+		aliyunDomain, _ := storage["upload_aliyun_domain"].(string)
+		aliyunAccessKey, _ := storage["upload_aliyun_access_key"].(string)
+		aliyunSecretKey, _ := storage["upload_aliyun_secret_key"].(string)
+		r.setUploadStorageConfig(strings.TrimSpace(strategy), strings.TrimSpace(dir), strings.TrimSpace(prefix), strings.TrimSpace(qiniuBucket), strings.TrimSpace(qiniuDomain), strings.TrimSpace(qiniuAccessKey), strings.TrimSpace(qiniuSecretKey), strings.TrimSpace(aliyunEndpoint), strings.TrimSpace(aliyunBucket), strings.TrimSpace(aliyunDomain), strings.TrimSpace(aliyunAccessKey), strings.TrimSpace(aliyunSecretKey))
 		return nil
 	})
 }

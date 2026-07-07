@@ -18,6 +18,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/aliyun/aliyun-oss-go-sdk/oss"
 	"github.com/disintegration/imaging"
 	"github.com/qiniu/go-sdk/v7/auth/qbox"
 	"github.com/qiniu/go-sdk/v7/storage"
@@ -103,6 +104,9 @@ func (r *Repository) UploadBytes(ctx context.Context, filename string, data []by
 	strategy := r.getUploadStrategy()
 	if strategy == "QINIU" {
 		return r.uploadToQiniu(filename, data)
+	}
+	if strategy == "ALIYUN" {
+		return r.uploadToAliyun(filename, data)
 	}
 
 	dir := r.getUploadLocalDir()
@@ -208,10 +212,74 @@ func (r *Repository) getQiniuFileURL(filename string) string {
 	return privateURL
 }
 
+func (r *Repository) uploadToAliyun(filename string, data []byte) (domfile.FileItem, error) {
+	endpoint, bucketName, _, accessKey, secretKey := r.getAliyunConfig()
+	if endpoint == "" || bucketName == "" || accessKey == "" || secretKey == "" {
+		return domfile.FileItem{}, apperr.New(apperr.ErrInternal.Code, "阿里云存储配置未完成")
+	}
+
+	ext := filepath.Ext(filename)
+	if ext == "" {
+		ext = ".bin"
+	}
+
+	h := md5.Sum(data)
+	md5Str := hex.EncodeToString(h[:])
+	safeName := md5Str + ext
+
+	now := time.Now()
+	datePath := fmt.Sprintf("%d/%02d/%02d", now.Year(), now.Month(), now.Day())
+	relativePath := filepath.Join(datePath, safeName)
+
+	compressedData := compressImageIfNeeded(safeName, data)
+
+	client, err := oss.New(endpoint, accessKey, secretKey)
+	if err != nil {
+		return domfile.FileItem{}, err
+	}
+
+	bucket, err := client.Bucket(bucketName)
+	if err != nil {
+		return domfile.FileItem{}, err
+	}
+
+	err = bucket.PutObject(relativePath, bytes.NewReader(compressedData))
+	if err != nil {
+		return domfile.FileItem{}, err
+	}
+
+	fileURL := r.getAliyunFileURL(relativePath)
+
+	return domfile.FileItem{
+		ID:         fileID(relativePath),
+		Name:       relativePath,
+		Size:       int64(len(compressedData)),
+		URL:        fileURL,
+		CreateTime: now.Format("2006-01-02 15:04:05"),
+	}, nil
+}
+
+func (r *Repository) getAliyunFileURL(filename string) string {
+	_, _, domain, _, _ := r.getAliyunConfig()
+	if domain == "" {
+		domain = r.getUploadURLPrefix()
+	}
+	if !strings.HasPrefix(domain, "http://") && !strings.HasPrefix(domain, "https://") {
+		domain = "https://" + domain
+	}
+	if !strings.HasSuffix(domain, "/") {
+		domain += "/"
+	}
+	return domain + filename
+}
+
 func (r *Repository) DeleteByID(ctx context.Context, id string) error {
 	strategy := r.getUploadStrategy()
 	if strategy == "QINIU" {
 		return r.deleteFromQiniu(ctx, id)
+	}
+	if strategy == "ALIYUN" {
+		return r.deleteFromAliyun(ctx, id)
 	}
 
 	dir := r.getUploadLocalDir()
@@ -291,6 +359,61 @@ func (r *Repository) deleteFromQiniu(ctx context.Context, id string) error {
 	bucketManager := storage.NewBucketManager(mac, &cfg)
 
 	if err := bucketManager.Delete(bucket, relativePath); err != nil {
+		return err
+	}
+
+	return os.Remove(fullPath)
+}
+
+func (r *Repository) deleteFromAliyun(ctx context.Context, id string) error {
+	endpoint, bucketName, _, accessKey, secretKey := r.getAliyunConfig()
+	if endpoint == "" || bucketName == "" || accessKey == "" || secretKey == "" {
+		return apperr.New(apperr.ErrInternal.Code, "阿里云存储配置未完成")
+	}
+
+	dir := r.getUploadLocalDir()
+	if dir == "" {
+		dir = "uploads"
+	}
+
+	var relativePath string
+	var fullPath string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rp, err := filepath.Rel(dir, path)
+		if err != nil {
+			return nil
+		}
+		if fileID(rp) == id {
+			relativePath = rp
+			fullPath = path
+			return filepath.SkipDir
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	if relativePath == "" {
+		return apperr.ErrNotFound
+	}
+
+	client, err := oss.New(endpoint, accessKey, secretKey)
+	if err != nil {
+		return err
+	}
+
+	ossBucket, err := client.Bucket(bucketName)
+	if err != nil {
+		return err
+	}
+
+	if err := ossBucket.DeleteObject(relativePath); err != nil {
 		return err
 	}
 
