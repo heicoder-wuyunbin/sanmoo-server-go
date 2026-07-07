@@ -3,7 +3,7 @@ package mysqlrepo
 import (
 	"bytes"
 	"context"
-	"crypto/sha1"
+	"crypto/md5"
 	"encoding/hex"
 	"fmt"
 	"image"
@@ -37,22 +37,37 @@ func (r *Repository) List(ctx context.Context, q domfile.ListQuery) ([]domfile.F
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		return nil, 0, err
 	}
-	entries, err := os.ReadDir(dir)
+
+	items := make([]domfile.FileItem, 0)
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		relativePath, err := filepath.Rel(dir, path)
+		if err != nil {
+			return nil
+		}
+		name := d.Name()
+		if q.Keyword != "" && !strings.Contains(strings.ToLower(name), strings.ToLower(q.Keyword)) {
+			return nil
+		}
+		info, _ := d.Info()
+		items = append(items, domfile.FileItem{
+			ID:         fileID(relativePath),
+			Name:       relativePath,
+			Size:       info.Size(),
+			URL:        joinURL(r.getUploadURLPrefix(), relativePath),
+			CreateTime: info.ModTime().Format("2006-01-02 15:04:05"),
+		})
+		return nil
+	})
 	if err != nil {
 		return nil, 0, err
 	}
-	items := make([]domfile.FileItem, 0)
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		name := e.Name()
-		if q.Keyword != "" && !strings.Contains(strings.ToLower(name), strings.ToLower(q.Keyword)) {
-			continue
-		}
-		info, _ := e.Info()
-		items = append(items, domfile.FileItem{ID: fileID(name), Name: name, Size: info.Size(), URL: joinURL(r.getUploadURLPrefix(), name), CreateTime: info.ModTime().Format("2006-01-02 15:04:05")})
-	}
+
 	sort.Slice(items, func(i, j int) bool { return items[i].CreateTime > items[j].CreateTime })
 	total := int64(len(items))
 	start := (q.Page - 1) * q.Size
@@ -71,39 +86,16 @@ func (r *Repository) listQiniuFiles(ctx context.Context, q domfile.ListQuery) ([
 }
 
 func (r *Repository) Upload(ctx context.Context, fileHeader *multipart.FileHeader) (domfile.FileItem, error) {
-	strategy := r.getUploadStrategy()
-	if strategy == "QINIU" {
-		src, err := fileHeader.Open()
-		if err != nil {
-			return domfile.FileItem{}, err
-		}
-		defer src.Close()
-		data, err := io.ReadAll(src)
-		if err != nil {
-			return domfile.FileItem{}, err
-		}
-		filename := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), filepath.Base(fileHeader.Filename))
-		return r.UploadBytes(ctx, filename, data)
-	}
-
-	dir := r.getUploadLocalDir()
-	if dir == "" {
-		dir = "uploads"
-	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return domfile.FileItem{}, err
-	}
 	src, err := fileHeader.Open()
 	if err != nil {
 		return domfile.FileItem{}, err
 	}
 	defer src.Close()
-	filename := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), filepath.Base(fileHeader.Filename))
 	data, err := io.ReadAll(src)
 	if err != nil {
 		return domfile.FileItem{}, err
 	}
-	return r.UploadBytes(ctx, filename, data)
+	return r.UploadBytes(ctx, fileHeader.Filename, data)
 }
 
 func (r *Repository) UploadBytes(ctx context.Context, filename string, data []byte) (domfile.FileItem, error) {
@@ -116,26 +108,38 @@ func (r *Repository) UploadBytes(ctx context.Context, filename string, data []by
 	if dir == "" {
 		dir = "uploads"
 	}
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return domfile.FileItem{}, err
+
+	ext := filepath.Ext(filename)
+	if ext == "" {
+		ext = ".bin"
 	}
-	safeName := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), filepath.Base(filename))
-	if safeName == "" || safeName == "." {
-		safeName = fmt.Sprintf("%d_upload.bin", time.Now().UnixMilli())
+
+	h := md5.Sum(data)
+	md5Str := hex.EncodeToString(h[:])
+	safeName := md5Str + ext
+
+	now := time.Now()
+	datePath := fmt.Sprintf("%d/%02d/%02d", now.Year(), now.Month(), now.Day())
+
+	fullDir := filepath.Join(dir, datePath)
+	if err := os.MkdirAll(fullDir, 0755); err != nil {
+		return domfile.FileItem{}, err
 	}
 
 	compressedData := compressImageIfNeeded(safeName, data)
 
-	dstPath := filepath.Join(dir, safeName)
+	dstPath := filepath.Join(fullDir, safeName)
 	if err := os.WriteFile(dstPath, compressedData, 0644); err != nil {
 		return domfile.FileItem{}, err
 	}
+
+	relativePath := filepath.Join(datePath, safeName)
 	return domfile.FileItem{
-		ID:         fileID(safeName),
-		Name:       safeName,
+		ID:         fileID(relativePath),
+		Name:       relativePath,
 		Size:       int64(len(compressedData)),
-		URL:        joinURL(r.getUploadURLPrefix(), safeName),
-		CreateTime: time.Now().Format("2006-01-02 15:04:05"),
+		URL:        joinURL(r.getUploadURLPrefix(), relativePath),
+		CreateTime: now.Format("2006-01-02 15:04:05"),
 	}, nil
 }
 
@@ -145,10 +149,18 @@ func (r *Repository) uploadToQiniu(filename string, data []byte) (domfile.FileIt
 		return domfile.FileItem{}, apperr.New(apperr.ErrInternal.Code, "七牛云存储配置未完成")
 	}
 
-	safeName := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), filepath.Base(filename))
-	if safeName == "" || safeName == "." {
-		safeName = fmt.Sprintf("%d_upload.bin", time.Now().UnixMilli())
+	ext := filepath.Ext(filename)
+	if ext == "" {
+		ext = ".bin"
 	}
+
+	h := md5.Sum(data)
+	md5Str := hex.EncodeToString(h[:])
+	safeName := md5Str + ext
+
+	now := time.Now()
+	datePath := fmt.Sprintf("%d/%02d/%02d", now.Year(), now.Month(), now.Day())
+	relativePath := filepath.Join(datePath, safeName)
 
 	compressedData := compressImageIfNeeded(safeName, data)
 
@@ -166,17 +178,17 @@ func (r *Repository) uploadToQiniu(filename string, data []byte) (domfile.FileIt
 	ret := storage.PutRet{}
 	putExtra := storage.PutExtra{}
 
-	err := formUploader.Put(context.Background(), &ret, upToken, safeName, bytes.NewReader(compressedData), int64(len(compressedData)), &putExtra)
+	err := formUploader.Put(context.Background(), &ret, upToken, relativePath, bytes.NewReader(compressedData), int64(len(compressedData)), &putExtra)
 	if err != nil {
 		return domfile.FileItem{}, err
 	}
 
 	return domfile.FileItem{
-		ID:         fileID(safeName),
-		Name:       safeName,
+		ID:         fileID(relativePath),
+		Name:       relativePath,
 		Size:       int64(len(compressedData)),
-		URL:        r.getQiniuFileURL(safeName),
-		CreateTime: time.Now().Format("2006-01-02 15:04:05"),
+		URL:        r.getQiniuFileURL(relativePath),
+		CreateTime: now.Format("2006-01-02 15:04:05"),
 	}, nil
 }
 
@@ -205,19 +217,32 @@ func (r *Repository) DeleteByID(ctx context.Context, id string) error {
 	if dir == "" {
 		dir = "uploads"
 	}
-	entries, err := os.ReadDir(dir)
+
+	var foundPath string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		relativePath, err := filepath.Rel(dir, path)
+		if err != nil {
+			return nil
+		}
+		if fileID(relativePath) == id {
+			foundPath = path
+			return filepath.SkipDir
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if fileID(e.Name()) == id {
-			return os.Remove(filepath.Join(dir, e.Name()))
-		}
+	if foundPath == "" {
+		return apperr.ErrNotFound
 	}
-	return apperr.ErrNotFound
+	return os.Remove(foundPath)
 }
 
 func (r *Repository) deleteFromQiniu(ctx context.Context, id string) error {
@@ -230,22 +255,31 @@ func (r *Repository) deleteFromQiniu(ctx context.Context, id string) error {
 	if dir == "" {
 		dir = "uploads"
 	}
-	entries, err := os.ReadDir(dir)
+
+	var relativePath string
+	var fullPath string
+	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil {
+			return err
+		}
+		if d.IsDir() {
+			return nil
+		}
+		rp, err := filepath.Rel(dir, path)
+		if err != nil {
+			return nil
+		}
+		if fileID(rp) == id {
+			relativePath = rp
+			fullPath = path
+			return filepath.SkipDir
+		}
+		return nil
+	})
 	if err != nil {
 		return err
 	}
-
-	var filename string
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if fileID(e.Name()) == id {
-			filename = e.Name()
-			break
-		}
-	}
-	if filename == "" {
+	if relativePath == "" {
 		return apperr.ErrNotFound
 	}
 
@@ -255,11 +289,11 @@ func (r *Repository) deleteFromQiniu(ctx context.Context, id string) error {
 	cfg.UseHTTPS = false
 	bucketManager := storage.NewBucketManager(mac, &cfg)
 
-	if err := bucketManager.Delete(bucket, filename); err != nil {
+	if err := bucketManager.Delete(bucket, relativePath); err != nil {
 		return err
 	}
 
-	return os.Remove(filepath.Join(dir, filename))
+	return os.Remove(fullPath)
 }
 
 func compressImageIfNeeded(filename string, data []byte) []byte {
