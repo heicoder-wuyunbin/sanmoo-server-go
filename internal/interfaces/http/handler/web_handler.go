@@ -9,6 +9,7 @@ import (
 	"time"
 
 	domarticle "sanmoo-server-go/internal/domain/article"
+	"sanmoo-server-go/internal/infrastructure/logger"
 	"sanmoo-server-go/internal/infrastructure/search"
 	"sanmoo-server-go/internal/interfaces/http/dto"
 	apperr "sanmoo-server-go/internal/shared/errors"
@@ -558,6 +559,14 @@ func (h *Handler) WebSearch(c *gin.Context) {
 	var q dto.ArticleListQuery
 	_ = c.ShouldBindQuery(&q)
 
+	// 参数兜底：确保分页参数合法
+	if q.Page < 1 {
+		q.Page = 1
+	}
+	if q.Size < 1 {
+		q.Size = 10
+	}
+
 	st, err := h.svc.Setting.GetSettings(c.Request.Context())
 	if err != nil {
 		st = nil
@@ -578,6 +587,7 @@ func (h *Handler) WebSearch(c *gin.Context) {
 		_ = h.svc.Article.RecordSearchHistory(c.Request.Context(), q.Keyword)
 	}
 
+	// 优先尝试 MeiliSearch；若不可用则兜底到 MySQL + Redis
 	if useMeiliSearch && q.Keyword != "" {
 		host := ""
 		apiKey := ""
@@ -612,6 +622,11 @@ func (h *Handler) WebSearch(c *gin.Context) {
 					})
 					return
 				}
+				if err != nil {
+					logger.Warnf("MeiliSearch 结果反查数据库失败，兜底到 MySQL 搜索: %v", err)
+				}
+			} else if err != nil {
+				logger.Warnf("MeiliSearch 搜索失败，兜底到 MySQL 搜索: %v", err)
 			}
 		}
 	}
@@ -619,6 +634,7 @@ func (h *Handler) WebSearch(c *gin.Context) {
 	one := 1
 	out, err := h.svc.Article.ListArticles(c.Request.Context(), q.Page, q.Size, q.Keyword, q.CategoryID, q.TagID, &one)
 	if err != nil {
+		logger.Errorf("MySQL 搜索兜底查询失败: %v", err)
 		response.Fail(c, err)
 		return
 	}
