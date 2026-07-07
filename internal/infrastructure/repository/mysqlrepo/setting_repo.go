@@ -436,12 +436,21 @@ func (r *Repository) UpdateStorageConfig(ctx context.Context, cfg domsetting.Sto
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		storage := convertKeysCamelToSnake(map[string]any(cfg))
 		storage["updated_by"] = operator
-		if err := tx.Table("t_blog_storage_config").Where("id=1").Updates(storage).Error; err != nil {
-			return err
+		validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_qiniu_access_key", "upload_qiniu_secret_key", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "config_version", "updated_by"}
+		filteredStorage := filterValidFields(storage, validStorageFields)
+		if len(filteredStorage) > 0 {
+			if err := tx.Table("t_blog_storage_config").Where("id=1").Updates(filteredStorage).Error; err != nil {
+				return err
+			}
 		}
+		strategy, _ := storage["upload_strategy"].(string)
 		dir, _ := storage["upload_local_dir"].(string)
 		prefix, _ := storage["upload_local_url_prefix"].(string)
-		r.setUploadStorageConfig(strings.TrimSpace(dir), strings.TrimSpace(prefix))
+		qiniuBucket, _ := storage["upload_qiniu_bucket"].(string)
+		qiniuDomain, _ := storage["upload_qiniu_domain"].(string)
+		qiniuAccessKey, _ := storage["upload_qiniu_access_key"].(string)
+		qiniuSecretKey, _ := storage["upload_qiniu_secret_key"].(string)
+		r.setUploadStorageConfig(strings.TrimSpace(strategy), strings.TrimSpace(dir), strings.TrimSpace(prefix), strings.TrimSpace(qiniuBucket), strings.TrimSpace(qiniuDomain), strings.TrimSpace(qiniuAccessKey), strings.TrimSpace(qiniuSecretKey))
 		return nil
 	})
 }
