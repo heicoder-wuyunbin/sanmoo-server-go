@@ -20,6 +20,7 @@ type TopicRef struct {
 type Article struct {
 	ID          uint64     `json:"id"`
 	Title       string     `json:"title"`
+	Slug        string     `json:"slug"`
 	TitleImage  string     `json:"titleImage"`
 	Description string     `json:"description"`
 	Content     string     `json:"content"`
@@ -28,6 +29,7 @@ type Article struct {
 	LikeNum     int        `json:"likeNum"`
 	IsTop       bool       `json:"isTop"`
 	IsPublished bool       `json:"isPublished"`
+	PublishTime *time.Time `json:"publishTime"` // 定时发布时间
 	CategoryID  uint64     `json:"categoryId"`
 	Category    string     `json:"categoryName"`
 	Tags        []TagRef   `json:"tags"`

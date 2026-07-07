@@ -88,6 +88,8 @@ func (r *Repository) CreatePermission(ctx context.Context, p *domperm.Permission
 		Module:      p.Module,
 		Type:        p.Type,
 		Description: p.Description,
+		FrontPath:   p.FrontPath,
+		Icon:        p.Icon,
 		SortOrder:   p.SortOrder,
 		Status:      p.Status,
 	}
@@ -103,6 +105,8 @@ func (r *Repository) UpdatePermission(ctx context.Context, p *domperm.Permission
 		"module":      p.Module,
 		"type":        p.Type,
 		"description": p.Description,
+		"front_path":  p.FrontPath,
+		"icon":        p.Icon,
 		"sort_order":  p.SortOrder,
 		"status":      p.Status,
 	}
@@ -111,6 +115,33 @@ func (r *Repository) UpdatePermission(ctx context.Context, p *domperm.Permission
 
 func (r *Repository) DeletePermission(ctx context.Context, id uint64) error {
 	return r.db.WithContext(ctx).Model(&tPermission{}).Where("id = ?", id).Update("status", 0).Error
+}
+
+func (r *Repository) GetUserMenus(ctx context.Context, permKeys []string) ([]domperm.UserMenuItem, error) {
+	if len(permKeys) == 0 {
+		return []domperm.UserMenuItem{}, nil
+	}
+	var models []tPermission
+	err := r.db.WithContext(ctx).Table("t_permission").
+		Where("perm_key IN ? AND type = ? AND status = 1", permKeys, "menu").
+		Order("sort_order asc, id asc").
+		Find(&models).Error
+	if err != nil {
+		return nil, err
+	}
+	res := make([]domperm.UserMenuItem, 0, len(models))
+	for _, m := range models {
+		res = append(res, domperm.UserMenuItem{
+			ID:        m.ID,
+			PermKey:   m.PermKey,
+			Name:      m.Name,
+			Module:    m.Module,
+			FrontPath: m.FrontPath,
+			Icon:      m.Icon,
+			SortOrder: m.SortOrder,
+		})
+	}
+	return res, nil
 }
 
 func (r *Repository) GetPermKeysByRoleIDs(ctx context.Context, roleIDs []uint64) ([]string, error) {
@@ -135,6 +166,8 @@ func tPermissionToDomain(m *tPermission) domperm.Permission {
 		Module:      m.Module,
 		Type:        m.Type,
 		Description: m.Description,
+		FrontPath:   m.FrontPath,
+		Icon:        m.Icon,
 		SortOrder:   m.SortOrder,
 		Status:      m.Status,
 		CreateTime:  m.CreateTime,

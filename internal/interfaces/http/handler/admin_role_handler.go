@@ -156,3 +156,18 @@ func (h *Handler) GetUserPermissions(c *gin.Context) {
 	}
 	response.Ok(c, gin.H{"permKeys": keys})
 }
+
+func (h *Handler) GetUserMenus(c *gin.Context) {
+	userID, ok := c.Get(middleware.CtxUserIDKey)
+	if !ok {
+		response.Fail(c, apperr.ErrUnauthorized)
+		return
+	}
+	uid := userID.(uint64)
+	menus, err := h.svc.Role.GetUserMenus(c.Request.Context(), uid)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, gin.H{"menus": menus})
+}

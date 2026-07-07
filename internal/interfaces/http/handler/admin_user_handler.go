@@ -1,8 +1,12 @@
 package handler
 
 import (
+	"encoding/csv"
+	"fmt"
 	"strconv"
+	"time"
 
+	domuser "sanmoo-server-go/internal/domain/user"
 	"sanmoo-server-go/internal/interfaces/http/dto"
 	"sanmoo-server-go/internal/interfaces/http/middleware"
 	apperr "sanmoo-server-go/internal/shared/errors"
@@ -147,4 +151,52 @@ func (h *Handler) ChangePassword(c *gin.Context) {
 		return
 	}
 	response.Ok(c, dto.EmptyResponse{})
+}
+
+func (h *Handler) ExportUsers(c *gin.Context) {
+	var q dto.PageQuery
+	_ = c.ShouldBindQuery(&q)
+	out, err := h.svc.User.ListUsers(c.Request.Context(), 1, 10000, q.Keyword)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	list, ok := out.List.([]domuser.User)
+	if !ok {
+		response.Fail(c, apperr.ErrInternal)
+		return
+	}
+
+	filename := fmt.Sprintf("users_%s.csv", time.Now().Format("20060102"))
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+
+	c.Writer.Write([]byte("\xEF\xBB\xBF"))
+
+	writer := csv.NewWriter(c.Writer)
+	defer writer.Flush()
+
+	header := []string{"ID", "用户名", "邮箱", "昵称", "角色", "状态", "创建时间", "更新时间"}
+	if err := writer.Write(header); err != nil {
+		return
+	}
+
+	for _, item := range list {
+		status := "启用"
+		if item.Status == "DISABLED" {
+			status = "禁用"
+		}
+		row := []string{
+			fmt.Sprintf("%d", item.ID),
+			item.Username,
+			item.Email,
+			item.Nickname,
+			item.RoleName,
+			status,
+			item.CreateTime.Format("2006-01-02 15:04:05"),
+			item.UpdateTime.Format("2006-01-02 15:04:05"),
+		}
+		writer.Write(row)
+	}
 }

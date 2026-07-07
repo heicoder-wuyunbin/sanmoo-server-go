@@ -8,9 +8,10 @@ import (
 	"sanmoo-server-go/internal/interfaces/http/middleware"
 
 	"github.com/gin-gonic/gin"
+	"github.com/redis/go-redis/v9"
 )
 
-func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo *mysqlrepo.Repository, roleSvc *rolesvc.Service) {
+func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo *mysqlrepo.Repository, roleSvc *rolesvc.Service, redisClient *redis.Client) {
 	// 添加全局日志中间件
 	e.Use(middleware.Logger())
 
@@ -22,8 +23,9 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 	e.GET("/swagger/", func(c *gin.Context) { c.Redirect(302, "/swagger") })
 	e.GET("/swagger/openapi.json", handler.SwaggerSpec)
 
-	// 认证相关接口（无需登录）。
+	// 认证相关接口（无需登录）。添加严格限流（5次/分钟，防暴力破解）
 	auth := e.Group("/auth")
+	auth.Use(middleware.RateLimit(redisClient, middleware.AuthRateLimit))
 	{
 		auth.POST("/login", h.Login)
 		auth.POST("/refresh", h.Refresh)
@@ -38,12 +40,14 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		user.PUT("/password", h.ChangePassword)
 	}
 
-	// 管理端接口统一要求 JWT 鉴权。
+	// 管理端接口统一要求 JWT 鉴权。添加宽松限流（300次/分钟）
 	admin := e.Group("/admin")
 	admin.Use(middleware.JWTAuth(jwt, repo))
+	admin.Use(middleware.RateLimit(redisClient, middleware.AdminRateLimit))
 	{
 		// 用户管理
 		admin.GET("/users", middleware.RequirePerm(roleSvc, "user:list"), h.GetUsers)
+		admin.GET("/users/export", middleware.RequirePerm(roleSvc, "user:export"), h.ExportUsers)
 		admin.POST("/users", middleware.RequirePerm(roleSvc, "user:create"), h.CreateUser)
 		admin.PUT("/users/:id", middleware.RequirePerm(roleSvc, "user:update"), h.UpdateUser)
 		admin.DELETE("/users/:id", middleware.RequirePerm(roleSvc, "user:delete"), h.DeleteUser)
@@ -84,6 +88,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 
 		// 文章管理
 		admin.GET("/articles", middleware.RequirePerm(roleSvc, "article:list"), h.GetArticles)
+		admin.GET("/articles/export", middleware.RequirePerm(roleSvc, "article:export"), h.ExportArticles)
 		admin.GET("/articles/:id", middleware.RequirePerm(roleSvc, "article:detail"), h.AdminArticleDetail)
 		admin.POST("/articles", middleware.RequirePerm(roleSvc, "article:create"), h.CreateArticle)
 		admin.PUT("/articles/:id", middleware.RequirePerm(roleSvc, "article:update"), h.UpdateArticle)
@@ -171,20 +176,24 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 
 		// 当前用户权限
 		admin.GET("/user/permissions", h.GetUserPermissions)
+		// 当前用户菜单（前端动态菜单渲染用）
+		admin.GET("/user/menus", h.GetUserMenus)
 
 		// 数据维护
 		admin.GET("/maintenance/stats", middleware.RequirePerm(roleSvc, "maintenance:stats"), h.AdminMaintenanceStats)
 		admin.POST("/maintenance/cleanup-logs", middleware.RequirePerm(roleSvc, "maintenance:cleanup"), h.AdminMaintenanceCleanupLogs)
 	}
 
-	// 门户端接口（公开访问）。
+	// 门户端接口（公开访问）。添加公开读接口限流（60次/分钟）
 	web := e.Group("/web")
+	web.Use(middleware.RateLimit(redisClient, middleware.PublicReadRateLimit))
 	{
 		web.GET("/settings", h.WebSettings)
 		web.GET("/categories", h.WebCategories)
 		web.GET("/tags", h.WebTags)
 		web.GET("/articles", h.WebArticles)
 		web.GET("/articles/:id", h.WebArticleDetail)
+		web.GET("/articles/slug/:slug", h.WebArticleBySlug) // 新增：slug 查询路由（SEO 友好）
 		web.GET("/categories/:id/articles", h.WebArticlesByCategory)
 		web.GET("/tags/:id/articles", h.WebArticlesByTag)
 		web.GET("/archives", h.WebArchives)
@@ -192,16 +201,18 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		web.GET("/topics/:id", h.WebTopicDetail)
 		web.GET("/topics/:id/articles", h.WebTopicArticles)
 		web.GET("/search/hot", h.WebHotSearches)
-		web.GET("/search", h.WebSearch)
+		web.GET("/search", h.WebSearch) // 搜索接口单独限流
 		web.GET("/articles/:id/related", h.WebRelatedArticles)
 		web.GET("/articles/hot", h.WebHotArticles)
-		web.POST("/articles/:id/like", h.WebLikeArticle)
+		// 点赞接口：先过写接口限流（10次/分钟），再过点赞防刷（24小时内只能点1次）
+		web.POST("/articles/:id/like", middleware.LikeRateLimit(redisClient), h.WebLikeArticle)
 		web.GET("/articles/random", h.WebRandomArticle)
 		web.GET("/links", h.GetActiveLinks)
 	}
 
-	// 小程序端接口：按约定与 /web 保持 1:1 对应。
+	// 小程序端接口：按约定与 /web 保持 1:1 对应。添加公开读接口限流（60次/分钟）
 	mp := e.Group("/mp")
+	mp.Use(middleware.RateLimit(redisClient, middleware.PublicReadRateLimit))
 	{
 		mp.POST("/auth/session", h.MpAuthSession)
 		mp.GET("/user/profile", h.MpUserProfile)

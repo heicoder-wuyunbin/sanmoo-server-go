@@ -14,6 +14,8 @@ type Permission struct {
 	Module      string    `json:"module"`
 	Type        string    `json:"type"`
 	Description string    `json:"description"`
+	FrontPath   string    `json:"frontPath"` // 前端菜单路径
+	Icon        string    `json:"icon"`        // 前端菜单图标
 	SortOrder   int       `json:"sortOrder"`
 	Status      int8      `json:"status"`
 	CreateTime  time.Time `json:"createTime"`
@@ -54,4 +56,15 @@ type PermissionTreeItem struct {
 	Name        string `json:"name"`
 	Type        string `json:"type"`
 	Description string `json:"description"`
+}
+
+// UserMenuItem 用户菜单项（前端动态菜单渲染用）
+type UserMenuItem struct {
+	ID        uint64 `json:"id"`
+	PermKey   string `json:"permKey"`
+	Name      string `json:"name"`
+	Module    string `json:"module"`
+	FrontPath string `json:"frontPath"`
+	Icon      string `json:"icon"`
+	SortOrder int    `json:"sortOrder"`
 }
