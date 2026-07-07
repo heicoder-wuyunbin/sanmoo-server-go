@@ -149,6 +149,20 @@ func (s *Service) GetArticleDetail(ctx context.Context, id uint64, increasePV bo
 	return &result, nil
 }
 
+// GetArticleBySlug 根据 slug 获取文章详情（SEO 友好 URL）
+func (s *Service) GetArticleBySlug(ctx context.Context, slug string) (*domarticle.Article, error) {
+	// slug 查询不走缓存（slug 可能变更）
+	article, err := s.repo.GetArticleBySlug(ctx, slug)
+	if err != nil {
+		return nil, err
+	}
+	// 增加 PV
+	if article != nil {
+		_ = s.repo.IncreaseReadAndPV(ctx, article.ID)
+	}
+	return article, nil
+}
+
 func (s *Service) Archives(ctx context.Context) (*dto.ListResponse[domarticle.ArchiveItem], error) {
 	var result dto.ListResponse[domarticle.ArchiveItem]
 	err := s.cache.GetOrSet(ctx, cache.KeyArchiveAll, &result, func() (interface{}, error) {

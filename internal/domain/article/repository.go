@@ -1,6 +1,9 @@
 package article
 
-import "context"
+import (
+	"context"
+	"time"
+)
 
 type ListQuery struct {
 	Page        int
@@ -26,6 +29,9 @@ type Repository interface {
 	FindByIDArticle(ctx context.Context, id uint64) (*Article, error)
 	FindPrev(ctx context.Context, id uint64) (*Article, error)
 	FindNext(ctx context.Context, id uint64) (*Article, error)
+	GetArticleBySlug(ctx context.Context, slug string) (*Article, error) // 新增：slug 查询
+	FindScheduledArticles(ctx context.Context, before time.Time) ([]Article, error) // 新增：查询待发布文章
+	PublishScheduledArticle(ctx context.Context, id uint64) error // 新增：发布定时文章
 	CreateArticle(ctx context.Context, a *Article) (uint64, error)
 	UpdateArticle(ctx context.Context, a *Article) error
 	UpdateArticleStatus(ctx context.Context, id uint64, isPublished, isTop *bool) error

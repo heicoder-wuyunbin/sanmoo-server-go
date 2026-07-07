@@ -73,6 +73,40 @@ func (h *Handler) WebArticleDetail(c *gin.Context) {
 	response.Ok(c, out)
 }
 
+// WebArticleBySlug 根据 slug 获取文章详情（SEO 友好 URL）
+func (h *Handler) WebArticleBySlug(c *gin.Context) {
+	slug := c.Param("slug")
+	if slug == "" {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+
+	// 通过 slug 获取文章
+	article, err := h.svc.Article.GetArticleBySlug(c.Request.Context(), slug)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	// 如果有 slug，则从 id 访问应重定向到 slug URL（SEO 权重传递）
+	out := &dto.ArticleDetailResponse{Article: article}
+	if article != nil {
+		if html, toc, mErr := markdown.ToHTMLWithTOC(article.Content); mErr == nil {
+			out.ContentHtml = html
+			tocItems := make([]dto.TOCItem, 0, len(toc))
+			for _, item := range toc {
+				tocItems = append(tocItems, dto.TOCItem{
+					Level: item.Level,
+					Text:  item.Text,
+					ID:    item.ID,
+				})
+			}
+			out.TOC = tocItems
+		}
+	}
+	response.Ok(c, out)
+}
+
 func (h *Handler) WebArticlesByCategory(c *gin.Context) {
 	categoryID, err := strconv.ParseUint(c.Param("id"), 10, 64)
 	if err != nil {

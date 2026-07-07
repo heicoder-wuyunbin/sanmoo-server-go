@@ -123,17 +123,19 @@ type tCategory struct {
 func (tCategory) TableName() string { return "t_category" }
 
 type tArticle struct {
-	ID          uint64    `gorm:"column:id;primaryKey"`
-	Title       string    `gorm:"column:title"`
-	TitleImage  string    `gorm:"column:title_image"`
-	Description string    `gorm:"column:description"`
-	ReadNum     int       `gorm:"column:read_num"`
-	ShareNum    int       `gorm:"column:share_num"`
-	LikeNum     int       `gorm:"column:like_num;default:0"`
-	IsTop       bool      `gorm:"column:is_top"`
-	IsPublished bool      `gorm:"column:is_published"`
-	CreateTime  time.Time `gorm:"column:create_time;autoCreateTime"`
-	UpdateTime  time.Time `gorm:"column:update_time;autoUpdateTime"`
+	ID          uint64     `gorm:"column:id;primaryKey"`
+	Title       string     `gorm:"column:title"`
+	Slug        string     `gorm:"column:slug"`
+	TitleImage  string     `gorm:"column:title_image"`
+	Description string     `gorm:"column:description"`
+	ReadNum     int        `gorm:"column:read_num"`
+	ShareNum    int        `gorm:"column:share_num"`
+	LikeNum     int        `gorm:"column:like_num;default:0"`
+	IsTop       bool       `gorm:"column:is_top"`
+	IsPublished bool       `gorm:"column:is_published"`
+	PublishTime *time.Time `gorm:"column:publish_time"`
+	CreateTime  time.Time  `gorm:"column:create_time;autoCreateTime"`
+	UpdateTime  time.Time  `gorm:"column:update_time;autoUpdateTime"`
 }
 
 func (tArticle) TableName() string { return "t_article" }

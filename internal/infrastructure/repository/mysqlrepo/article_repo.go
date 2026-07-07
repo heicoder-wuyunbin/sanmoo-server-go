@@ -11,14 +11,14 @@ import (
 
 type articleListRow struct {
 	ID                                           uint64
-	Title, TitleImage, Description, CategoryName string
+	Title, Slug, TitleImage, Description, CategoryName string
 	CategoryID                                   uint64
 	ReadNum, LikeNum                             int
 	IsTop, IsPublished                           bool
 	CreateTime, UpdateTime                       time.Time
 }
 
-const articleListSelectSQL = `a.id, a.title, a.title_image, a.description, a.read_num, a.like_num,
+const articleListSelectSQL = `a.id, a.title, a.slug, a.title_image, a.description, a.read_num, a.like_num,
 		a.is_top, a.is_published, a.create_time, a.update_time,
 		acr.category_id, c.name as category_name`
 
@@ -33,6 +33,7 @@ func mapArticleRow(row articleListRow, tagsMap map[uint64][]domarticle.TagRef) d
 	return domarticle.Article{
 		ID:          row.ID,
 		Title:       row.Title,
+		Slug:        row.Slug,
 		TitleImage:  row.TitleImage,
 		Description: row.Description,
 		ReadNum:     row.ReadNum,
@@ -164,6 +165,7 @@ func (r *Repository) RandomArticle(ctx context.Context, excludeID uint64) (*doma
 	return &domarticle.Article{
 		ID:          row.ID,
 		Title:       row.Title,
+		Slug:        row.Slug,
 		TitleImage:  row.TitleImage,
 		Description: row.Description,
 		ReadNum:     row.ReadNum,
@@ -174,4 +176,95 @@ func (r *Repository) RandomArticle(ctx context.Context, excludeID uint64) (*doma
 		CreateTime:  row.CreateTime,
 		UpdateTime:  row.UpdateTime,
 	}, nil
+}
+
+// GetArticleBySlug 根据 slug 获取文章详情
+func (r *Repository) GetArticleBySlug(ctx context.Context, slug string) (*domarticle.Article, error) {
+	var row tArticle
+	err := r.db.WithContext(ctx).Where("slug = ? AND is_published = 1", slug).First(&row).Error
+	if err != nil {
+		return nil, err
+	}
+
+	// 获取内容
+	var content tArticleContent
+	err = r.db.WithContext(ctx).Where("article_id = ?", row.ID).First(&content).Error
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
+
+	// 获取分类
+	var categoryID uint64
+	r.db.WithContext(ctx).Table("t_article_category_rel").
+		Where("article_id = ?", row.ID).
+		Select("MIN(category_id)").Scan(&categoryID)
+
+	var categoryName string
+	if categoryID > 0 {
+		r.db.WithContext(ctx).Table("t_category").
+			Where("id = ?", categoryID).
+			Select("name").Scan(&categoryName)
+	}
+
+	// 获取标签
+	tags, _ := r.queryArticleTags(ctx, row.ID)
+
+	// 获取专题
+	topics, _ := r.queryArticleTopics(ctx, row.ID)
+
+	return &domarticle.Article{
+		ID:          row.ID,
+		Title:       row.Title,
+		Slug:        row.Slug,
+		TitleImage:  row.TitleImage,
+		Description: row.Description,
+		Content:     content.Content,
+		ReadNum:     row.ReadNum,
+		ShareNum:    row.ShareNum,
+		LikeNum:     row.LikeNum,
+		IsTop:       row.IsTop,
+		IsPublished: row.IsPublished,
+		PublishTime: row.PublishTime,
+		CategoryID:  categoryID,
+		Category:    categoryName,
+		Tags:        tags,
+		Topics:      topics,
+		CreateTime:  row.CreateTime,
+		UpdateTime:  row.UpdateTime,
+	}, nil
+}
+
+// FindScheduledArticles 查询待发布文章（is_published=0 且 publish_time <= before 且 publish_time IS NOT NULL）
+func (r *Repository) FindScheduledArticles(ctx context.Context, before time.Time) ([]domarticle.Article, error) {
+	var rows []tArticle
+	err := r.db.WithContext(ctx).
+		Where("is_published = 0 AND publish_time IS NOT NULL AND publish_time <= ?", before).
+		Find(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+
+	articles := make([]domarticle.Article, 0, len(rows))
+	for _, row := range rows {
+		articles = append(articles, domarticle.Article{
+			ID:          row.ID,
+			Title:       row.Title,
+			Slug:        row.Slug,
+			IsPublished: row.IsPublished,
+			PublishTime: row.PublishTime,
+		})
+	}
+	return articles, nil
+}
+
+// PublishScheduledArticle 发布定时文章（设置 is_published=1，清空 publish_time）
+func (r *Repository) PublishScheduledArticle(ctx context.Context, id uint64) error {
+	return r.db.WithContext(ctx).
+		Model(&tArticle{}).
+		Where("id = ?", id).
+		Updates(map[string]interface{}{
+			"is_published": 1,
+			"publish_time": nil,
+			"update_time":  time.Now(),
+		}).Error
 }

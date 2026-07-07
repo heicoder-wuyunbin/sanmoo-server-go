@@ -18,6 +18,7 @@ import (
 	mpuserapp "sanmoo-server-go/internal/application/mpuser"
 	permsvc "sanmoo-server-go/internal/application/permission"
 	rolesvc "sanmoo-server-go/internal/application/role"
+	"sanmoo-server-go/internal/application/scheduler"
 	"sanmoo-server-go/internal/application/setting"
 	"sanmoo-server-go/internal/application/tag"
 	"sanmoo-server-go/internal/application/topic"
@@ -135,12 +136,19 @@ func New(cfg *config.Config) (*App, error) {
 	engine.Use(middleware.AccessLogMiddleware(database))
 
 	logger.Infof("注册路由...")
-	router.Register(engine, h, jwtMgr, repo, roleSvc)
+	router.Register(engine, h, jwtMgr, repo, roleSvc, redisClient)
 	logger.Infof("路由注册成功")
 
+	// 启动定时清理任务
 	logger.Infof("启动定时清理任务...")
 	maintenanceSvc.StartDailyCleanup()
 	logger.Infof("定时清理任务已启动")
+
+	// 启动定时发布调度器
+	logger.Infof("启动定时发布调度器...")
+	publishScheduler := scheduler.NewScheduledPublishScheduler(repo, bizCache)
+	publishScheduler.Start()
+	logger.Infof("定时发布调度器启动成功")
 
 	logger.Infof("初始化HTTP服务器，端口: %s", cfg.ServerPort)
 	server := &http.Server{
