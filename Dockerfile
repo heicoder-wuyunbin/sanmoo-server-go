@@ -1,5 +1,5 @@
 # 阶段 1: 编译 Go 项目
-FROM golang:1.23-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 # 配置 Alpine 国内镜像源（加速 apk add）
 RUN sed -i 's/dl-cdn.alpinelinux.org/mirrors.aliyun.com/g' /etc/apk/repositories && \
