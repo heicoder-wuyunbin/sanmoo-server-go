@@ -171,6 +171,10 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 
 		// 当前用户权限
 		admin.GET("/user/permissions", h.GetUserPermissions)
+
+		// 数据维护
+		admin.GET("/maintenance/stats", middleware.RequirePerm(roleSvc, "maintenance:stats"), h.AdminMaintenanceStats)
+		admin.POST("/maintenance/cleanup-logs", middleware.RequirePerm(roleSvc, "maintenance:cleanup"), h.AdminMaintenanceCleanupLogs)
 	}
 
 	// 门户端接口（公开访问）。

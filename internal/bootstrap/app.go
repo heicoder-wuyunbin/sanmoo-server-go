@@ -14,6 +14,7 @@ import (
 	"sanmoo-server-go/internal/application/dashboard"
 	"sanmoo-server-go/internal/application/file"
 	linkapp "sanmoo-server-go/internal/application/link"
+	maintenanceapp "sanmoo-server-go/internal/application/maintenance"
 	mpuserapp "sanmoo-server-go/internal/application/mpuser"
 	permsvc "sanmoo-server-go/internal/application/permission"
 	rolesvc "sanmoo-server-go/internal/application/role"
@@ -93,26 +94,28 @@ func New(cfg *config.Config) (*App, error) {
 	linkSvc := linkapp.NewLinkService(linkRepo)
 	permSvc := permsvc.NewService(repo, bizCache)
 	roleSvc := rolesvc.NewService(repo, repo, bizCache)
+	maintenanceSvc := maintenanceapp.NewService(database)
 	logger.Infof("应用服务初始化成功")
 
 	logger.Infof("初始化HTTP处理器...")
 	cacheMgmtSvc := cacheapp.NewService(bizCache, articleSvc, categorySvc, tagSvc, dashboardSvc, settingSvc)
 	h := handler.New(handler.Services{
-		Auth:       authSvc,
-		User:       userSvc,
-		Tag:        tagSvc,
-		Category:   categorySvc,
-		Article:    articleSvc,
-		Topic:      topicSvc,
-		Setting:    settingSvc,
-		File:       fileSvc,
-		Dashboard:  dashboardSvc,
-		Cache:      cacheMgmtSvc,
-		MPUser:     mpUserSvc,
-		Backup:     backupSvc,
-		Link:       linkSvc,
-		Permission: permSvc,
-		Role:       roleSvc,
+		Auth:        authSvc,
+		User:        userSvc,
+		Tag:         tagSvc,
+		Category:    categorySvc,
+		Article:     articleSvc,
+		Topic:       topicSvc,
+		Setting:     settingSvc,
+		File:        fileSvc,
+		Dashboard:   dashboardSvc,
+		Cache:       cacheMgmtSvc,
+		MPUser:      mpUserSvc,
+		Backup:      backupSvc,
+		Link:        linkSvc,
+		Permission:  permSvc,
+		Role:        roleSvc,
+		Maintenance: maintenanceSvc,
 	})
 	logger.Infof("HTTP处理器初始化成功")
 
@@ -134,6 +137,10 @@ func New(cfg *config.Config) (*App, error) {
 	logger.Infof("注册路由...")
 	router.Register(engine, h, jwtMgr, repo, roleSvc)
 	logger.Infof("路由注册成功")
+
+	logger.Infof("启动定时清理任务...")
+	maintenanceSvc.StartDailyCleanup()
+	logger.Infof("定时清理任务已启动")
 
 	logger.Infof("初始化HTTP服务器，端口: %s", cfg.ServerPort)
 	server := &http.Server{

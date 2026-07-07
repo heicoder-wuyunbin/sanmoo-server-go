@@ -11,6 +11,7 @@ import (
 	"sanmoo-server-go/internal/application/dashboard"
 	"sanmoo-server-go/internal/application/file"
 	linkapp "sanmoo-server-go/internal/application/link"
+	maintenanceapp "sanmoo-server-go/internal/application/maintenance"
 	mpuserapp "sanmoo-server-go/internal/application/mpuser"
 	permsvc "sanmoo-server-go/internal/application/permission"
 	rolesvc "sanmoo-server-go/internal/application/role"
@@ -41,21 +42,22 @@ import (
 
 // Services 聚合所有应用层服务，作为 Handler 的依赖。
 type Services struct {
-	Auth       *auth.Service
-	User       *user.Service
-	Tag        *tag.Service
-	Category   *category.Service
-	Article    *article.Service
-	Topic      *topic.Service
-	Setting    *setting.Service
-	File       *file.Service
-	Dashboard  *dashboard.Service
-	Cache      *cacheapp.Service
-	MPUser     *mpuserapp.Service
-	Backup     *backupapp.Service
-	Link       *linkapp.LinkService
-	Permission *permsvc.Service
-	Role       *rolesvc.Service
+	Auth        *auth.Service
+	User        *user.Service
+	Tag         *tag.Service
+	Category    *category.Service
+	Article     *article.Service
+	Topic       *topic.Service
+	Setting     *setting.Service
+	File        *file.Service
+	Dashboard   *dashboard.Service
+	Cache       *cacheapp.Service
+	MPUser      *mpuserapp.Service
+	Backup      *backupapp.Service
+	Link        *linkapp.LinkService
+	Permission  *permsvc.Service
+	Role        *rolesvc.Service
+	Maintenance *maintenanceapp.Service
 }
 
 type Handler struct {
