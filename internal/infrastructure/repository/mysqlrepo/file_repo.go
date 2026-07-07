@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
+	"crypto/sha1"
 	"encoding/hex"
 	"fmt"
 	"image"
