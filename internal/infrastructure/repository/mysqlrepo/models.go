@@ -85,6 +85,8 @@ type tPermission struct {
 	Module      string    `gorm:"column:module"`
 	Type        string    `gorm:"column:type"`
 	Description string    `gorm:"column:description"`
+	FrontPath   string    `gorm:"column:front_path"`
+	Icon        string    `gorm:"column:icon"`
 	SortOrder   int       `gorm:"column:sort_order"`
 	Status      int8      `gorm:"column:status"`
 	CreateTime  time.Time `gorm:"column:create_time;autoCreateTime"`

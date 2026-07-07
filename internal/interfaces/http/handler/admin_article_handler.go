@@ -1,7 +1,11 @@
 package handler
 
 import (
+	"encoding/csv"
+	"fmt"
 	"strconv"
+	"strings"
+	"time"
 
 	domarticle "sanmoo-server-go/internal/domain/article"
 	"sanmoo-server-go/internal/interfaces/http/dto"
@@ -154,4 +158,66 @@ func (h *Handler) AdminArticleDetail(c *gin.Context) {
 		return
 	}
 	response.Ok(c, out)
+}
+
+func (h *Handler) ExportArticles(c *gin.Context) {
+	var q dto.ArticleListQuery
+	_ = c.ShouldBindQuery(&q)
+	// 导出时不分页，取大量数据
+	out, err := h.svc.Article.ListArticles(c.Request.Context(), 1, 10000, q.Keyword, q.CategoryID, q.TagID, q.IsPublished)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	list, ok := out.List.([]domarticle.Article)
+	if !ok {
+		response.Fail(c, apperr.ErrInternal)
+		return
+	}
+
+	filename := fmt.Sprintf("articles_%s.csv", time.Now().Format("20060102"))
+	c.Header("Content-Type", "text/csv; charset=utf-8")
+	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", filename))
+
+	// 写入 UTF-8 BOM，确保 Excel 打开中文不乱码
+	c.Writer.Write([]byte("\xEF\xBB\xBF"))
+
+	writer := csv.NewWriter(c.Writer)
+	defer writer.Flush()
+
+	// 表头
+	header := []string{"ID", "标题", "Slug", "分类", "标签", "阅读量", "点赞量", "置顶", "发布状态", "创建时间", "更新时间"}
+	if err := writer.Write(header); err != nil {
+		return
+	}
+
+	for _, item := range list {
+		tagNames := make([]string, 0, len(item.Tags))
+		for _, t := range item.Tags {
+			tagNames = append(tagNames, t.Name)
+		}
+		top := "否"
+		if item.IsTop {
+			top = "是"
+		}
+		published := "未发布"
+		if item.IsPublished {
+			published = "已发布"
+		}
+		row := []string{
+			fmt.Sprintf("%d", item.ID),
+			item.Title,
+			item.Slug,
+			item.Category,
+			strings.Join(tagNames, ","),
+			fmt.Sprintf("%d", item.ReadNum),
+			fmt.Sprintf("%d", item.LikeNum),
+			top,
+			published,
+			item.CreateTime.Format("2006-01-02 15:04:05"),
+			item.UpdateTime.Format("2006-01-02 15:04:05"),
+		}
+		writer.Write(row)
+	}
 }

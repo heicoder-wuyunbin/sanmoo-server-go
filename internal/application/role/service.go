@@ -240,6 +240,19 @@ func (s *Service) AssignUserRoles(ctx context.Context, userID uint64, roleIDs []
 	return err
 }
 
+// GetUserMenus 获取用户的菜单列表（用于前端动态菜单渲染）
+func (s *Service) GetUserMenus(ctx context.Context, userID uint64) ([]domperm.UserMenuItem, error) {
+	permSet, err := s.GetUserPermKeys(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	keys := make([]string, 0, len(permSet))
+	for k := range permSet {
+		keys = append(keys, k)
+	}
+	return s.permRepo.GetUserMenus(ctx, keys)
+}
+
 func (s *Service) IsAdminUser(ctx context.Context, userID uint64) (bool, error) {
 	roles, err := s.GetUserRoles(ctx, userID)
 	if err != nil {

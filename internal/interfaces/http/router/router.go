@@ -47,6 +47,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 	{
 		// 用户管理
 		admin.GET("/users", middleware.RequirePerm(roleSvc, "user:list"), h.GetUsers)
+		admin.GET("/users/export", middleware.RequirePerm(roleSvc, "user:export"), h.ExportUsers)
 		admin.POST("/users", middleware.RequirePerm(roleSvc, "user:create"), h.CreateUser)
 		admin.PUT("/users/:id", middleware.RequirePerm(roleSvc, "user:update"), h.UpdateUser)
 		admin.DELETE("/users/:id", middleware.RequirePerm(roleSvc, "user:delete"), h.DeleteUser)
@@ -87,6 +88,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 
 		// 文章管理
 		admin.GET("/articles", middleware.RequirePerm(roleSvc, "article:list"), h.GetArticles)
+		admin.GET("/articles/export", middleware.RequirePerm(roleSvc, "article:export"), h.ExportArticles)
 		admin.GET("/articles/:id", middleware.RequirePerm(roleSvc, "article:detail"), h.AdminArticleDetail)
 		admin.POST("/articles", middleware.RequirePerm(roleSvc, "article:create"), h.CreateArticle)
 		admin.PUT("/articles/:id", middleware.RequirePerm(roleSvc, "article:update"), h.UpdateArticle)
@@ -174,6 +176,8 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 
 		// 当前用户权限
 		admin.GET("/user/permissions", h.GetUserPermissions)
+		// 当前用户菜单（前端动态菜单渲染用）
+		admin.GET("/user/menus", h.GetUserMenus)
 
 		// 数据维护
 		admin.GET("/maintenance/stats", middleware.RequirePerm(roleSvc, "maintenance:stats"), h.AdminMaintenanceStats)

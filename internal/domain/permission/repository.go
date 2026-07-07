@@ -19,4 +19,5 @@ type Repository interface {
 	UpdatePermission(ctx context.Context, p *Permission) error
 	DeletePermission(ctx context.Context, id uint64) error
 	GetPermKeysByRoleIDs(ctx context.Context, roleIDs []uint64) ([]string, error)
+	GetUserMenus(ctx context.Context, permKeys []string) ([]UserMenuItem, error) // 根据权限键获取菜单列表
 }
