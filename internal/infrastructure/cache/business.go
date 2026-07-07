@@ -41,7 +41,9 @@ const (
 
 // BusinessCache 业务缓存服务，封装对 Redis 的读写操作。
 type BusinessCache struct {
-	client *redis.Client
+	client    *redis.Client
+	hitCount  int64
+	missCount int64
 }
 
 // NewBusinessCache 创建业务缓存实例。
@@ -75,6 +77,7 @@ func BuildArticleListKey(page, size int, keyword string, categoryID, tagID uint6
 func (c *BusinessCache) Get(ctx context.Context, key string, dest interface{}) (bool, error) {
 	val, err := c.client.Get(ctx, key).Result()
 	if err == redis.Nil {
+		c.missCount++
 		return false, nil
 	}
 	if err != nil {
@@ -85,6 +88,7 @@ func (c *BusinessCache) Get(ctx context.Context, key string, dest interface{}) (
 		logger.Warnf("Redis 反序列化失败 key=%s: %v", key, err)
 		return false, err
 	}
+	c.hitCount++
 	return true, nil
 }
 
@@ -230,10 +234,20 @@ func (c *BusinessCache) GetStats(ctx context.Context) (map[string]interface{}, e
 		}
 	}
 
+	// 计算缓存命中率
+	total := c.hitCount + c.missCount
+	var hitRate float64
+	if total > 0 {
+		hitRate = float64(c.hitCount) / float64(total) * 100
+	}
+
 	return map[string]interface{}{
 		"totalKeys":    totalKeys,
 		"prefixCounts": prefixCounts,
 		"memoryUsed":   memoryUsed,
+		"hitRate":      fmt.Sprintf("%.2f", hitRate),
+		"hitCount":     c.hitCount,
+		"missCount":    c.missCount,
 	}, nil
 }
 
