@@ -55,7 +55,7 @@ func New(cfg *config.Config) (*App, error) {
 	logger.Infof("数据库连接初始化成功")
 
 	logger.Infof("初始化仓库...")
-	repo := mysqlrepo.New(database, "uploads", "/uploads/")
+	repo := mysqlrepo.New(database, "uploads", "/uploads/", "", "", "", "")
 	logger.Infof("仓库初始化成功")
 
 	logger.Infof("初始化JWT管理器...")

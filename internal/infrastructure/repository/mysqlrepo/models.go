@@ -10,13 +10,33 @@ import (
 
 type Repository struct {
 	db              *gorm.DB
+	uploadStrategy  string
 	uploadLocalDir  string
 	uploadURLPrefix string
+	qiniuAccessKey  string
+	qiniuSecretKey  string
+	qiniuBucket     string
+	qiniuDomain     string
 	mu              sync.RWMutex
 }
 
-func New(db *gorm.DB, uploadLocalDir, uploadURLPrefix string) *Repository {
-	return &Repository{db: db, uploadLocalDir: uploadLocalDir, uploadURLPrefix: uploadURLPrefix}
+func New(db *gorm.DB, uploadLocalDir, uploadURLPrefix string, qiniuAccessKey, qiniuSecretKey, qiniuBucket, qiniuDomain string) *Repository {
+	return &Repository{
+		db:              db,
+		uploadStrategy:  "LOCAL",
+		uploadLocalDir:  uploadLocalDir,
+		uploadURLPrefix: uploadURLPrefix,
+		qiniuAccessKey:  qiniuAccessKey,
+		qiniuSecretKey:  qiniuSecretKey,
+		qiniuBucket:     qiniuBucket,
+		qiniuDomain:     qiniuDomain,
+	}
+}
+
+func (r *Repository) getUploadStrategy() string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.uploadStrategy
 }
 
 func (r *Repository) getUploadLocalDir() string {
@@ -24,19 +44,42 @@ func (r *Repository) getUploadLocalDir() string {
 	defer r.mu.RUnlock()
 	return r.uploadLocalDir
 }
+
 func (r *Repository) getUploadURLPrefix() string {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 	return r.uploadURLPrefix
 }
-func (r *Repository) setUploadStorageConfig(localDir, urlPrefix string) {
+
+func (r *Repository) getQiniuConfig() (accessKey, secretKey, bucket, domain string) {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.qiniuAccessKey, r.qiniuSecretKey, r.qiniuBucket, r.qiniuDomain
+}
+
+func (r *Repository) setUploadStorageConfig(uploadStrategy, localDir, urlPrefix, qiniuBucket, qiniuDomain, qiniuAccessKey, qiniuSecretKey string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if uploadStrategy != "" {
+		r.uploadStrategy = uploadStrategy
+	}
 	if localDir != "" {
 		r.uploadLocalDir = localDir
 	}
 	if urlPrefix != "" {
 		r.uploadURLPrefix = urlPrefix
+	}
+	if qiniuBucket != "" {
+		r.qiniuBucket = qiniuBucket
+	}
+	if qiniuDomain != "" {
+		r.qiniuDomain = qiniuDomain
+	}
+	if qiniuAccessKey != "" {
+		r.qiniuAccessKey = qiniuAccessKey
+	}
+	if qiniuSecretKey != "" {
+		r.qiniuSecretKey = qiniuSecretKey
 	}
 }
 

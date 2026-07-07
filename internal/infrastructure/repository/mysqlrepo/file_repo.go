@@ -18,11 +18,18 @@ import (
 	"time"
 
 	"github.com/disintegration/imaging"
+	"github.com/qiniu/go-sdk/v7/auth/qbox"
+	"github.com/qiniu/go-sdk/v7/storage"
 	domfile "sanmoo-server-go/internal/domain/file"
 	apperr "sanmoo-server-go/internal/shared/errors"
 )
 
 func (r *Repository) List(ctx context.Context, q domfile.ListQuery) ([]domfile.FileItem, int64, error) {
+	strategy := r.getUploadStrategy()
+	if strategy == "QINIU" {
+		return r.listQiniuFiles(ctx, q)
+	}
+
 	dir := r.getUploadLocalDir()
 	if dir == "" {
 		dir = "uploads"
@@ -59,7 +66,26 @@ func (r *Repository) List(ctx context.Context, q domfile.ListQuery) ([]domfile.F
 	return items[start:end], total, nil
 }
 
+func (r *Repository) listQiniuFiles(ctx context.Context, q domfile.ListQuery) ([]domfile.FileItem, int64, error) {
+	return []domfile.FileItem{}, 0, nil
+}
+
 func (r *Repository) Upload(ctx context.Context, fileHeader *multipart.FileHeader) (domfile.FileItem, error) {
+	strategy := r.getUploadStrategy()
+	if strategy == "QINIU" {
+		src, err := fileHeader.Open()
+		if err != nil {
+			return domfile.FileItem{}, err
+		}
+		defer src.Close()
+		data, err := io.ReadAll(src)
+		if err != nil {
+			return domfile.FileItem{}, err
+		}
+		filename := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), filepath.Base(fileHeader.Filename))
+		return r.UploadBytes(ctx, filename, data)
+	}
+
 	dir := r.getUploadLocalDir()
 	if dir == "" {
 		dir = "uploads"
@@ -81,6 +107,11 @@ func (r *Repository) Upload(ctx context.Context, fileHeader *multipart.FileHeade
 }
 
 func (r *Repository) UploadBytes(ctx context.Context, filename string, data []byte) (domfile.FileItem, error) {
+	strategy := r.getUploadStrategy()
+	if strategy == "QINIU" {
+		return r.uploadToQiniu(filename, data)
+	}
+
 	dir := r.getUploadLocalDir()
 	if dir == "" {
 		dir = "uploads"
@@ -106,6 +137,129 @@ func (r *Repository) UploadBytes(ctx context.Context, filename string, data []by
 		URL:        joinURL(r.getUploadURLPrefix(), safeName),
 		CreateTime: time.Now().Format("2006-01-02 15:04:05"),
 	}, nil
+}
+
+func (r *Repository) uploadToQiniu(filename string, data []byte) (domfile.FileItem, error) {
+	accessKey, secretKey, bucket, _ := r.getQiniuConfig()
+	if accessKey == "" || secretKey == "" || bucket == "" {
+		return domfile.FileItem{}, apperr.New(apperr.ErrInternal.Code, "七牛云存储配置未完成")
+	}
+
+	safeName := fmt.Sprintf("%d_%s", time.Now().UnixMilli(), filepath.Base(filename))
+	if safeName == "" || safeName == "." {
+		safeName = fmt.Sprintf("%d_upload.bin", time.Now().UnixMilli())
+	}
+
+	compressedData := compressImageIfNeeded(safeName, data)
+
+	mac := qbox.NewMac(accessKey, secretKey)
+	putPolicy := storage.PutPolicy{
+		Scope: bucket,
+	}
+	upToken := putPolicy.UploadToken(mac)
+
+	cfg := storage.Config{}
+	cfg.Zone = &storage.ZoneHuanan
+	cfg.UseHTTPS = false
+
+	formUploader := storage.NewFormUploader(&cfg)
+	ret := storage.PutRet{}
+	putExtra := storage.PutExtra{}
+
+	err := formUploader.Put(context.Background(), &ret, upToken, safeName, bytes.NewReader(compressedData), int64(len(compressedData)), &putExtra)
+	if err != nil {
+		return domfile.FileItem{}, err
+	}
+
+	return domfile.FileItem{
+		ID:         fileID(safeName),
+		Name:       safeName,
+		Size:       int64(len(compressedData)),
+		URL:        r.getQiniuFileURL(safeName),
+		CreateTime: time.Now().Format("2006-01-02 15:04:05"),
+	}, nil
+}
+
+func (r *Repository) getQiniuFileURL(filename string) string {
+	accessKey, secretKey, _, domain := r.getQiniuConfig()
+	if domain == "" {
+		domain = r.getUploadURLPrefix()
+	}
+	if !strings.HasPrefix(domain, "http://") && !strings.HasPrefix(domain, "https://") {
+		domain = "http://" + domain
+	}
+
+	mac := qbox.NewMac(accessKey, secretKey)
+	deadline := time.Now().Add(3600 * time.Second).Unix()
+	privateURL := storage.MakePrivateURL(mac, domain, filename, deadline)
+	return privateURL
+}
+
+func (r *Repository) DeleteByID(ctx context.Context, id string) error {
+	strategy := r.getUploadStrategy()
+	if strategy == "QINIU" {
+		return r.deleteFromQiniu(ctx, id)
+	}
+
+	dir := r.getUploadLocalDir()
+	if dir == "" {
+		dir = "uploads"
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if fileID(e.Name()) == id {
+			return os.Remove(filepath.Join(dir, e.Name()))
+		}
+	}
+	return apperr.ErrNotFound
+}
+
+func (r *Repository) deleteFromQiniu(ctx context.Context, id string) error {
+	accessKey, secretKey, bucket, _ := r.getQiniuConfig()
+	if accessKey == "" || secretKey == "" || bucket == "" {
+		return apperr.New(apperr.ErrInternal.Code, "七牛云存储配置未完成")
+	}
+
+	dir := r.getUploadLocalDir()
+	if dir == "" {
+		dir = "uploads"
+	}
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+
+	var filename string
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if fileID(e.Name()) == id {
+			filename = e.Name()
+			break
+		}
+	}
+	if filename == "" {
+		return apperr.ErrNotFound
+	}
+
+	mac := qbox.NewMac(accessKey, secretKey)
+	cfg := storage.Config{}
+	cfg.Zone = &storage.ZoneHuanan
+	cfg.UseHTTPS = false
+	bucketManager := storage.NewBucketManager(mac, &cfg)
+
+	if err := bucketManager.Delete(bucket, filename); err != nil {
+		return err
+	}
+
+	return os.Remove(filepath.Join(dir, filename))
 }
 
 func compressImageIfNeeded(filename string, data []byte) []byte {
@@ -153,30 +307,11 @@ func compressImageIfNeeded(filename string, data []byte) []byte {
 	return buf.Bytes()
 }
 
-func (r *Repository) DeleteByID(ctx context.Context, id string) error {
-	dir := r.getUploadLocalDir()
-	if dir == "" {
-		dir = "uploads"
-	}
-	entries, err := os.ReadDir(dir)
-	if err != nil {
-		return err
-	}
-	for _, e := range entries {
-		if e.IsDir() {
-			continue
-		}
-		if fileID(e.Name()) == id {
-			return os.Remove(filepath.Join(dir, e.Name()))
-		}
-	}
-	return apperr.ErrNotFound
-}
-
 func fileID(name string) string {
 	h := sha1.Sum([]byte(name))
 	return hex.EncodeToString(h[:8])
 }
+
 func joinURL(prefix, name string) string {
 	p := prefix
 	if p == "" {
