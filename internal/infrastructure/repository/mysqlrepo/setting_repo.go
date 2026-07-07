@@ -22,7 +22,6 @@ func snakeToCamel(s string) string {
 func camelToSnake(s string) string {
 	var res []rune
 	for i, r := range s {
-		// 将驼峰转为下划线，并仅对大写字母做小写化处理
 		if i > 0 && unicode.IsUpper(r) {
 			res = append(res, '_')
 		}
@@ -51,33 +50,71 @@ func convertKeysCamelToSnake(m map[string]any) map[string]any {
 	return res
 }
 
+func filterValidFields(m map[string]any, validFields []string) map[string]any {
+	res := make(map[string]any)
+	for _, field := range validFields {
+		if v, ok := m[field]; ok {
+			res[field] = v
+		}
+	}
+	return res
+}
+
 func (r *Repository) Get(ctx context.Context) (*domsetting.BlogSettings, error) {
 	coreRaw := map[string]any{}
-	uiRaw := map[string]any{}
+	socialRaw := map[string]any{}
+	searchRaw := map[string]any{}
+	privacyRaw := map[string]any{}
 	storageRaw := map[string]any{}
 	emailCfg := map[string]any{}
+
 	if err := r.db.WithContext(ctx).Table("t_blog_core_config").Where("id=1").Take(&coreRaw).Error; err != nil {
 		return nil, err
 	}
-	if err := r.db.WithContext(ctx).Table("t_blog_ui_config").Where("id=1").Take(&uiRaw).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table("t_blog_social_config").Where("id=1").Take(&socialRaw).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.WithContext(ctx).Table("t_blog_search_config").Where("id=1").Take(&searchRaw).Error; err != nil {
+		return nil, err
+	}
+	if err := r.db.WithContext(ctx).Table("t_blog_privacy_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
 		return nil, err
 	}
 	if err := r.db.WithContext(ctx).Table("t_blog_storage_config").Where("id=1").Take(&storageRaw).Error; err != nil {
 		return nil, err
 	}
-	// 邮件配置：允许不存在（首次初始化）
 	var emailRow struct {
 		ConfigJSON string `gorm:"column:config_json"`
 	}
 	if err := r.db.WithContext(ctx).Table("t_blog_email_config").Select("config_json").Where("id=1").Take(&emailRow).Error; err == nil {
 		_ = json.Unmarshal([]byte(emailRow.ConfigJSON), &emailCfg)
 	}
+
 	core := convertKeysSnakeToCamel(coreRaw)
-	ui := convertKeysSnakeToCamel(uiRaw)
+	social := convertKeysSnakeToCamel(socialRaw)
+	search := convertKeysSnakeToCamel(searchRaw)
+	privacy := convertKeysSnakeToCamel(privacyRaw)
 	storage := convertKeysSnakeToCamel(storageRaw)
+
+	uiConfig := map[string]any{}
+	for k, v := range social {
+		uiConfig[k] = v
+	}
+	for k, v := range search {
+		uiConfig[k] = v
+	}
+
+	coreConfig := map[string]any{}
+	for k, v := range core {
+		coreConfig[k] = v
+	}
+	for k, v := range privacy {
+		coreConfig[k] = v
+	}
+
 	return &domsetting.BlogSettings{
-		CoreConfig:    core,
-		UIConfig:      ui,
+		CoreConfig:    coreConfig,
+		UIConfig:      uiConfig,
 		StorageConfig: storage,
 		EmailConfig:   emailCfg,
 	}, nil
@@ -88,13 +125,15 @@ func (r *Repository) Update(ctx context.Context, s *domsetting.BlogSettings, ope
 		if len(s.CoreConfig) > 0 {
 			core := convertKeysCamelToSnake(s.CoreConfig)
 			core["updated_by"] = operator
-			validCoreFields := []string{"blog_name", "author", "introduction", "avatar", "privacy_policy", "rss_enabled", "updated_by"}
-			filteredCore := make(map[string]any)
-			for _, field := range validCoreFields {
-				if v, ok := core[field]; ok {
-					filteredCore[field] = v
-				}
+
+			privacyPart := map[string]any{}
+			if v, ok := core["privacy_policy"]; ok {
+				privacyPart["privacy_policy"] = v
+				privacyPart["updated_by"] = operator
 			}
+
+			coreFields := []string{"blog_name", "author", "introduction", "avatar", "rss_enabled", "updated_by"}
+			filteredCore := filterValidFields(core, coreFields)
 			if v, ok := filteredCore["rss_enabled"]; ok {
 				switch val := v.(type) {
 				case bool:
@@ -105,8 +144,18 @@ func (r *Repository) Update(ctx context.Context, s *domsetting.BlogSettings, ope
 					}
 				}
 			}
+
 			if len(filteredCore) > 0 {
 				if err := tx.Table("t_blog_core_config").Where("id=1").Updates(filteredCore).Error; err != nil {
+					return err
+				}
+			}
+			if len(privacyPart) > 0 {
+				if err := tx.Exec(`
+INSERT INTO t_blog_privacy_config(id, privacy_policy, updated_by)
+VALUES(1, ?, ?)
+ON DUPLICATE KEY UPDATE privacy_policy = VALUES(privacy_policy), updated_by = VALUES(updated_by), update_time = CURRENT_TIMESTAMP
+`, privacyPart["privacy_policy"], operator).Error; err != nil {
 					return err
 				}
 			}
@@ -114,33 +163,56 @@ func (r *Repository) Update(ctx context.Context, s *domsetting.BlogSettings, ope
 		if len(s.UIConfig) > 0 {
 			ui := convertKeysCamelToSnake(s.UIConfig)
 			ui["updated_by"] = operator
-			// 只保留数据库表中存在的字段，避免更新不存在的字段导致错误
-			validUIFields := []string{"github_home", "csdn_home", "gitee_home", "zhihu_home", "github_show", "csdn_show", "gitee_show", "zhihu_show", "recommend_strategy", "search_engine", "hot_search_words", "hot_search_mode", "meilisearch_host", "meilisearch_api_key", "meilisearch_index", "updated_by"}
-			filteredUI := make(map[string]any)
-			for _, field := range validUIFields {
-				if v, ok := ui[field]; ok {
-					filteredUI[field] = v
+
+			socialFields := []string{"github_home", "csdn_home", "gitee_home", "zhihu_home", "github_show", "csdn_show", "gitee_show", "zhihu_show", "updated_by"}
+			searchFields := []string{"recommend_strategy", "search_engine", "hot_search_words", "hot_search_mode", "meilisearch_host", "meilisearch_api_key", "meilisearch_index", "updated_by"}
+			allUIFields := append(append([]string{}, socialFields...), searchFields...)
+
+			filteredAll := filterValidFields(ui, allUIFields)
+			if len(filteredAll) > 0 {
+				if err := tx.Table("t_blog_ui_config").Where("id=1").Updates(filteredAll).Error; err != nil {
+					return err
 				}
 			}
-			// hot_search_mode 是 tinyint(1)，兼容前端可能传入字符串的情况
-			if v, ok := filteredUI["hot_search_mode"]; ok {
+
+			filteredSocial := filterValidFields(ui, socialFields)
+			for _, field := range []string{"github_show", "csdn_show", "gitee_show", "zhihu_show"} {
+				if v, ok := filteredSocial[field]; ok {
+					switch val := v.(type) {
+					case bool:
+						if val {
+							filteredSocial[field] = 1
+						} else {
+							filteredSocial[field] = 0
+						}
+					}
+				}
+			}
+			if len(filteredSocial) > 0 {
+				if err := tx.Table("t_blog_social_config").Where("id=1").Updates(filteredSocial).Error; err != nil {
+					return err
+				}
+			}
+
+			filteredSearch := filterValidFields(ui, searchFields)
+			if v, ok := filteredSearch["hot_search_mode"]; ok {
 				switch val := v.(type) {
 				case string:
 					if val == "REAL" || val == "true" {
-						filteredUI["hot_search_mode"] = 1
+						filteredSearch["hot_search_mode"] = 1
 					} else {
-						filteredUI["hot_search_mode"] = 0
+						filteredSearch["hot_search_mode"] = 0
 					}
 				case bool:
 					if val {
-						filteredUI["hot_search_mode"] = 1
+						filteredSearch["hot_search_mode"] = 1
 					} else {
-						filteredUI["hot_search_mode"] = 0
+						filteredSearch["hot_search_mode"] = 0
 					}
 				}
 			}
-			if len(filteredUI) > 0 {
-				if err := tx.Table("t_blog_ui_config").Where("id=1").Updates(filteredUI).Error; err != nil {
+			if len(filteredSearch) > 0 {
+				if err := tx.Table("t_blog_search_config").Where("id=1").Updates(filteredSearch).Error; err != nil {
 					return err
 				}
 			}
@@ -174,7 +246,6 @@ func (r *Repository) Update(ctx context.Context, s *domsetting.BlogSettings, ope
 			if err != nil {
 				return err
 			}
-			// id=1 单行配置
 			if err := tx.Exec(`
 INSERT INTO t_blog_email_config(id, config_json, updated_by)
 VALUES(1, ?, ?)
@@ -182,6 +253,223 @@ ON DUPLICATE KEY UPDATE config_json = VALUES(config_json), updated_by = VALUES(u
 `, string(b), operator).Error; err != nil {
 				return err
 			}
+		}
+		return nil
+	})
+}
+
+func (r *Repository) GetCoreConfig(ctx context.Context) (domsetting.CoreConfig, error) {
+	coreRaw := map[string]any{}
+	if err := r.db.WithContext(ctx).Table("t_blog_core_config").Where("id=1").Take(&coreRaw).Error; err != nil {
+		return nil, err
+	}
+	core := convertKeysSnakeToCamel(coreRaw)
+	delete(core, "privacyPolicy")
+	delete(core, "id")
+	delete(core, "configVersion")
+	delete(core, "createTime")
+	delete(core, "updateTime")
+	delete(core, "createdBy")
+	delete(core, "updatedBy")
+	return domsetting.CoreConfig(core), nil
+}
+
+func (r *Repository) UpdateCoreConfig(ctx context.Context, cfg domsetting.CoreConfig, operator string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		core := convertKeysCamelToSnake(map[string]any(cfg))
+		core["updated_by"] = operator
+		validCoreFields := []string{"blog_name", "author", "introduction", "avatar", "rss_enabled", "updated_by"}
+		filteredCore := filterValidFields(core, validCoreFields)
+		if v, ok := filteredCore["rss_enabled"]; ok {
+			switch val := v.(type) {
+			case bool:
+				if val {
+					filteredCore["rss_enabled"] = 1
+				} else {
+					filteredCore["rss_enabled"] = 0
+				}
+			}
+		}
+		if len(filteredCore) > 0 {
+			if err := tx.Table("t_blog_core_config").Where("id=1").Updates(filteredCore).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *Repository) GetSocialConfig(ctx context.Context) (domsetting.SocialConfig, error) {
+	socialRaw := map[string]any{}
+	if err := r.db.WithContext(ctx).Table("t_blog_social_config").Where("id=1").Take(&socialRaw).Error; err != nil {
+		return nil, err
+	}
+	social := convertKeysSnakeToCamel(socialRaw)
+	delete(social, "id")
+	delete(social, "configVersion")
+	delete(social, "createTime")
+	delete(social, "updateTime")
+	delete(social, "createdBy")
+	delete(social, "updatedBy")
+	return domsetting.SocialConfig(social), nil
+}
+
+func (r *Repository) UpdateSocialConfig(ctx context.Context, cfg domsetting.SocialConfig, operator string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		social := convertKeysCamelToSnake(map[string]any(cfg))
+		social["updated_by"] = operator
+		validSocialFields := []string{"github_home", "csdn_home", "gitee_home", "zhihu_home", "github_show", "csdn_show", "gitee_show", "zhihu_show", "updated_by"}
+		filteredSocial := filterValidFields(social, validSocialFields)
+		for _, field := range []string{"github_show", "csdn_show", "gitee_show", "zhihu_show"} {
+			if v, ok := filteredSocial[field]; ok {
+				switch val := v.(type) {
+				case bool:
+					if val {
+						filteredSocial[field] = 1
+					} else {
+						filteredSocial[field] = 0
+					}
+				}
+			}
+		}
+		if len(filteredSocial) > 0 {
+			if err := tx.Table("t_blog_social_config").Where("id=1").Updates(filteredSocial).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *Repository) GetSearchConfig(ctx context.Context) (domsetting.SearchConfig, error) {
+	searchRaw := map[string]any{}
+	if err := r.db.WithContext(ctx).Table("t_blog_search_config").Where("id=1").Take(&searchRaw).Error; err != nil {
+		return nil, err
+	}
+	search := convertKeysSnakeToCamel(searchRaw)
+	delete(search, "id")
+	delete(search, "configVersion")
+	delete(search, "createTime")
+	delete(search, "updateTime")
+	delete(search, "createdBy")
+	delete(search, "updatedBy")
+	return domsetting.SearchConfig(search), nil
+}
+
+func (r *Repository) UpdateSearchConfig(ctx context.Context, cfg domsetting.SearchConfig, operator string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		search := convertKeysCamelToSnake(map[string]any(cfg))
+		search["updated_by"] = operator
+		validSearchFields := []string{"recommend_strategy", "search_engine", "hot_search_mode", "hot_search_words", "meilisearch_host", "meilisearch_api_key", "meilisearch_index", "updated_by"}
+		filteredSearch := filterValidFields(search, validSearchFields)
+		if v, ok := filteredSearch["hot_search_mode"]; ok {
+			switch val := v.(type) {
+			case string:
+				if val == "REAL" || val == "true" {
+					filteredSearch["hot_search_mode"] = 1
+				} else {
+					filteredSearch["hot_search_mode"] = 0
+				}
+			case bool:
+				if val {
+					filteredSearch["hot_search_mode"] = 1
+				} else {
+					filteredSearch["hot_search_mode"] = 0
+				}
+			}
+		}
+		if len(filteredSearch) > 0 {
+			if err := tx.Table("t_blog_search_config").Where("id=1").Updates(filteredSearch).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *Repository) GetPrivacyConfig(ctx context.Context) (domsetting.PrivacyConfig, error) {
+	privacyRaw := map[string]any{}
+	if err := r.db.WithContext(ctx).Table("t_blog_privacy_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
+		return nil, err
+	}
+	privacy := convertKeysSnakeToCamel(privacyRaw)
+	delete(privacy, "id")
+	delete(privacy, "configVersion")
+	delete(privacy, "createTime")
+	delete(privacy, "updateTime")
+	delete(privacy, "createdBy")
+	delete(privacy, "updatedBy")
+	return domsetting.PrivacyConfig(privacy), nil
+}
+
+func (r *Repository) UpdatePrivacyConfig(ctx context.Context, cfg domsetting.PrivacyConfig, operator string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		privacy := convertKeysCamelToSnake(map[string]any(cfg))
+		privacy["updated_by"] = operator
+		validPrivacyFields := []string{"privacy_policy", "updated_by"}
+		filteredPrivacy := filterValidFields(privacy, validPrivacyFields)
+		if len(filteredPrivacy) > 0 {
+			if err := tx.Table("t_blog_privacy_config").Where("id=1").Updates(filteredPrivacy).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+func (r *Repository) GetStorageConfig(ctx context.Context) (domsetting.StorageConfig, error) {
+	storageRaw := map[string]any{}
+	if err := r.db.WithContext(ctx).Table("t_blog_storage_config").Where("id=1").Take(&storageRaw).Error; err != nil {
+		return nil, err
+	}
+	storage := convertKeysSnakeToCamel(storageRaw)
+	delete(storage, "id")
+	delete(storage, "configVersion")
+	delete(storage, "createTime")
+	delete(storage, "updateTime")
+	delete(storage, "createdBy")
+	delete(storage, "updatedBy")
+	return domsetting.StorageConfig(storage), nil
+}
+
+func (r *Repository) UpdateStorageConfig(ctx context.Context, cfg domsetting.StorageConfig, operator string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		storage := convertKeysCamelToSnake(map[string]any(cfg))
+		storage["updated_by"] = operator
+		if err := tx.Table("t_blog_storage_config").Where("id=1").Updates(storage).Error; err != nil {
+			return err
+		}
+		dir, _ := storage["upload_local_dir"].(string)
+		prefix, _ := storage["upload_local_url_prefix"].(string)
+		r.setUploadStorageConfig(strings.TrimSpace(dir), strings.TrimSpace(prefix))
+		return nil
+	})
+}
+
+func (r *Repository) GetEmailConfig(ctx context.Context) (domsetting.EmailConfig, error) {
+	emailCfg := map[string]any{}
+	var emailRow struct {
+		ConfigJSON string `gorm:"column:config_json"`
+	}
+	if err := r.db.WithContext(ctx).Table("t_blog_email_config").Select("config_json").Where("id=1").Take(&emailRow).Error; err != nil {
+		return nil, err
+	}
+	_ = json.Unmarshal([]byte(emailRow.ConfigJSON), &emailCfg)
+	return domsetting.EmailConfig(emailCfg), nil
+}
+
+func (r *Repository) UpdateEmailConfig(ctx context.Context, cfg domsetting.EmailConfig, operator string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		b, err := json.Marshal(cfg)
+		if err != nil {
+			return err
+		}
+		if err := tx.Exec(`
+INSERT INTO t_blog_email_config(id, config_json, updated_by)
+VALUES(1, ?, ?)
+ON DUPLICATE KEY UPDATE config_json = VALUES(config_json), updated_by = VALUES(updated_by), update_time = CURRENT_TIMESTAMP
+`, string(b), operator).Error; err != nil {
+			return err
 		}
 		return nil
 	})

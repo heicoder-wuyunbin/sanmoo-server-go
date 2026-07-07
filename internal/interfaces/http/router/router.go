@@ -106,6 +106,20 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.POST("/settings/import", middleware.RequirePerm(roleSvc, "setting:import"), h.AdminImportSettings)
 		admin.POST("/search/sync", middleware.RequirePerm(roleSvc, "setting:search"), h.AdminSyncMeiliSearch)
 
+		// 独立配置接口
+		admin.GET("/settings/core", middleware.RequirePerm(roleSvc, "setting:core:read"), h.AdminGetCoreConfig)
+		admin.PUT("/settings/core", middleware.RequirePerm(roleSvc, "setting:core:update"), h.AdminUpdateCoreConfig)
+		admin.GET("/settings/privacy", middleware.RequirePerm(roleSvc, "setting:privacy:read"), h.AdminGetPrivacyConfig)
+		admin.PUT("/settings/privacy", middleware.RequirePerm(roleSvc, "setting:privacy:update"), h.AdminUpdatePrivacyConfig)
+		admin.GET("/settings/social", middleware.RequirePerm(roleSvc, "setting:social:read"), h.AdminGetSocialConfig)
+		admin.PUT("/settings/social", middleware.RequirePerm(roleSvc, "setting:social:update"), h.AdminUpdateSocialConfig)
+		admin.GET("/settings/search", middleware.RequirePerm(roleSvc, "setting:search:read"), h.AdminGetSearchConfig)
+		admin.PUT("/settings/search", middleware.RequirePerm(roleSvc, "setting:search:update"), h.AdminUpdateSearchConfig)
+		admin.GET("/settings/storage", middleware.RequirePerm(roleSvc, "setting:storage:read"), h.AdminGetStorageConfig)
+		admin.PUT("/settings/storage", middleware.RequirePerm(roleSvc, "setting:storage:update"), h.AdminUpdateStorageConfig)
+		admin.GET("/settings/email", middleware.RequirePerm(roleSvc, "setting:email:read"), h.AdminGetEmailConfig)
+		admin.PUT("/settings/email", middleware.RequirePerm(roleSvc, "setting:email:update"), h.AdminUpdateEmailConfig)
+
 		// 文件管理
 		admin.GET("/files", middleware.RequirePerm(roleSvc, "file:list"), h.GetFiles)
 		admin.POST("/files/upload", middleware.RequirePerm(roleSvc, "file:upload"), h.UploadFile)

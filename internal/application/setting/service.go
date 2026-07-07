@@ -303,3 +303,152 @@ func (s *Service) ImportSettings(ctx context.Context, data map[string]any, opera
 	}
 	return nil
 }
+
+func (s *Service) GetCoreConfig(ctx context.Context) (map[string]any, error) {
+	cfg, err := s.repo.GetCoreConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any(cfg), nil
+}
+
+func (s *Service) UpdateCoreConfig(ctx context.Context, body map[string]any, operator string) error {
+	if err := s.repo.UpdateCoreConfig(ctx, domsetting.CoreConfig(body), operator); err != nil {
+		return err
+	}
+	if s.bizCache != nil {
+		_ = s.bizCache.DeletePattern(ctx, "blog:setting:*")
+	}
+	return nil
+}
+
+func (s *Service) GetSocialConfig(ctx context.Context) (map[string]any, error) {
+	cfg, err := s.repo.GetSocialConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any(cfg), nil
+}
+
+func (s *Service) UpdateSocialConfig(ctx context.Context, body map[string]any, operator string) error {
+	if err := s.repo.UpdateSocialConfig(ctx, domsetting.SocialConfig(body), operator); err != nil {
+		return err
+	}
+	if s.bizCache != nil {
+		_ = s.bizCache.DeletePattern(ctx, "blog:setting:*")
+	}
+	return nil
+}
+
+func (s *Service) GetSearchConfig(ctx context.Context) (map[string]any, error) {
+	cfg, err := s.repo.GetSearchConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any(cfg), nil
+}
+
+func (s *Service) UpdateSearchConfig(ctx context.Context, body map[string]any, operator string) error {
+	if err := s.repo.UpdateSearchConfig(ctx, domsetting.SearchConfig(body), operator); err != nil {
+		return err
+	}
+	if s.bizCache != nil {
+		_ = s.bizCache.DeletePattern(ctx, "blog:setting:*")
+	}
+	return nil
+}
+
+func (s *Service) GetPrivacyConfig(ctx context.Context) (map[string]any, error) {
+	cfg, err := s.repo.GetPrivacyConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any(cfg), nil
+}
+
+func (s *Service) UpdatePrivacyConfig(ctx context.Context, body map[string]any, operator string) error {
+	if err := s.repo.UpdatePrivacyConfig(ctx, domsetting.PrivacyConfig(body), operator); err != nil {
+		return err
+	}
+	if s.bizCache != nil {
+		_ = s.bizCache.DeletePattern(ctx, "blog:setting:*")
+	}
+	return nil
+}
+
+func (s *Service) GetStorageConfig(ctx context.Context) (map[string]any, error) {
+	cfg, err := s.repo.GetStorageConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any(cfg), nil
+}
+
+func (s *Service) UpdateStorageConfig(ctx context.Context, body map[string]any, operator string) error {
+	if err := s.repo.UpdateStorageConfig(ctx, domsetting.StorageConfig(body), operator); err != nil {
+		return err
+	}
+	if s.bizCache != nil {
+		_ = s.bizCache.DeletePattern(ctx, "blog:setting:*")
+	}
+	return nil
+}
+
+func (s *Service) GetEmailConfig(ctx context.Context) (map[string]any, error) {
+	cfg, err := s.repo.GetEmailConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any(cfg), nil
+}
+
+func (s *Service) UpdateEmailConfig(ctx context.Context, body map[string]any, operator string) error {
+	newEmailCfg := body
+	newUsername, _ := newEmailCfg["username"].(string)
+	newUsername = strings.TrimSpace(newUsername)
+	if newUsername != "" {
+		needVerify := true
+		oldCfg, err := s.repo.GetEmailConfig(ctx)
+		if err == nil && len(oldCfg) > 0 {
+			old := map[string]any(oldCfg)
+			get := func(m map[string]any, k string) string {
+				if v, ok := m[k].(string); ok {
+					return strings.TrimSpace(v)
+				}
+				return ""
+			}
+			needVerify =
+				get(old, "host") != get(newEmailCfg, "host") ||
+					get(old, "port") != get(newEmailCfg, "port") ||
+					get(old, "username") != get(newEmailCfg, "username") ||
+					get(old, "password") != get(newEmailCfg, "password") ||
+					get(old, "from") != get(newEmailCfg, "from")
+		}
+		if needVerify {
+			if s.verifySvc == nil {
+				return apperr.New(apperr.ErrInternal.Code, "验证码服务未初始化")
+			}
+			markKey := cache.GenerateEmailVerifiedKey(newUsername)
+			mark, err := s.verifySvc.GetCode(ctx, markKey)
+			if err != nil || mark != "1" {
+				return apperr.ErrEmailNotVerified
+			}
+		}
+	}
+
+	if err := s.repo.UpdateEmailConfig(ctx, domsetting.EmailConfig(body), operator); err != nil {
+		return err
+	}
+
+	if u, ok := newEmailCfg["username"].(string); ok && strings.TrimSpace(u) != "" && s.verifySvc != nil {
+		_ = s.verifySvc.DeleteCode(ctx, cache.GenerateEmailVerifiedKey(strings.TrimSpace(u)))
+	}
+
+	if s.emailServ != nil {
+		s.emailServ.UpdateConfig(body)
+	}
+	if s.bizCache != nil {
+		_ = s.bizCache.DeletePattern(ctx, "blog:setting:*")
+	}
+	return nil
+}

@@ -163,3 +163,165 @@ func (h *Handler) AdminSyncMeiliSearch(c *gin.Context) {
 		"msg":   "同步完成",
 	})
 }
+
+func (h *Handler) AdminGetCoreConfig(c *gin.Context) {
+	out, err := h.svc.Setting.GetCoreConfig(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, out)
+}
+
+func (h *Handler) AdminUpdateCoreConfig(c *gin.Context) {
+	body := map[string]any{}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	op, _ := c.Get(middleware.CtxUsernameKey)
+	operator, _ := op.(string)
+	if operator == "" {
+		operator = "system"
+	}
+	if err := h.svc.Setting.UpdateCoreConfig(c.Request.Context(), body, operator); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, dto.EmptyResponse{})
+}
+
+func (h *Handler) AdminGetSocialConfig(c *gin.Context) {
+	out, err := h.svc.Setting.GetSocialConfig(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, out)
+}
+
+func (h *Handler) AdminUpdateSocialConfig(c *gin.Context) {
+	body := map[string]any{}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	op, _ := c.Get(middleware.CtxUsernameKey)
+	operator, _ := op.(string)
+	if operator == "" {
+		operator = "system"
+	}
+	if err := h.svc.Setting.UpdateSocialConfig(c.Request.Context(), body, operator); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, dto.EmptyResponse{})
+}
+
+func (h *Handler) AdminGetSearchConfig(c *gin.Context) {
+	out, err := h.svc.Setting.GetSearchConfig(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, out)
+}
+
+func (h *Handler) AdminUpdateSearchConfig(c *gin.Context) {
+	body := map[string]any{}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	op, _ := c.Get(middleware.CtxUsernameKey)
+	operator, _ := op.(string)
+	if operator == "" {
+		operator = "system"
+	}
+	if err := h.svc.Setting.UpdateSearchConfig(c.Request.Context(), body, operator); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, dto.EmptyResponse{})
+}
+
+func (h *Handler) AdminGetPrivacyConfig(c *gin.Context) {
+	out, err := h.svc.Setting.GetPrivacyConfig(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, out)
+}
+
+func (h *Handler) AdminUpdatePrivacyConfig(c *gin.Context) {
+	body := map[string]any{}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	op, _ := c.Get(middleware.CtxUsernameKey)
+	operator, _ := op.(string)
+	if operator == "" {
+		operator = "system"
+	}
+	if err := h.svc.Setting.UpdatePrivacyConfig(c.Request.Context(), body, operator); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, dto.EmptyResponse{})
+}
+
+func (h *Handler) AdminGetStorageConfig(c *gin.Context) {
+	out, err := h.svc.Setting.GetStorageConfig(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, out)
+}
+
+func (h *Handler) AdminUpdateStorageConfig(c *gin.Context) {
+	body := map[string]any{}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	op, _ := c.Get(middleware.CtxUsernameKey)
+	operator, _ := op.(string)
+	if operator == "" {
+		operator = "system"
+	}
+	if err := h.svc.Setting.UpdateStorageConfig(c.Request.Context(), body, operator); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, dto.EmptyResponse{})
+}
+
+func (h *Handler) AdminGetEmailConfig(c *gin.Context) {
+	out, err := h.svc.Setting.GetEmailConfig(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, out)
+}
+
+func (h *Handler) AdminUpdateEmailConfig(c *gin.Context) {
+	body := map[string]any{}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	op, _ := c.Get(middleware.CtxUsernameKey)
+	operator, _ := op.(string)
+	if operator == "" {
+		operator = "system"
+	}
+	if err := h.svc.Setting.UpdateEmailConfig(c.Request.Context(), body, operator); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, dto.EmptyResponse{})
+}
