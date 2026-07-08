@@ -46,5 +46,6 @@ type Repository interface {
 	ListArticlesByIDs(ctx context.Context, ids []uint64) ([]Article, error)
 	RecordSearchHistory(ctx context.Context, keyword string) error
 	GetHotSearchKeywords(ctx context.Context, limit int) ([]string, error)
+	GetHotTagsFromArticles(ctx context.Context, limit int) ([]string, error)
 	RandomArticle(ctx context.Context, excludeID uint64) (*Article, error)
 }

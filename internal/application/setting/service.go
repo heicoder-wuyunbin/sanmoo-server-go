@@ -118,17 +118,17 @@ func (s *Service) UpdateSettings(ctx context.Context, body map[string]any, opera
 
 // SendEmailVerificationCode 给当前 emailConfig.username 发送验证码（不落库），并写入 Redis。
 // 用于“绑定邮箱前先验证”的流程。
-func (s *Service) SendEmailVerificationCode(ctx context.Context, cfg dto.EmailConfigRequest) error {
+func (s *Service) SendEmailVerificationCode(ctx context.Context, cfg dto.EmailConfigRequest) (string, error) {
 	if s.emailServ == nil {
-		return apperr.New(apperr.ErrInvalidParam.Code, "邮件服务未配置")
+		return "", apperr.New(apperr.ErrInvalidParam.Code, "邮件服务未配置")
 	}
 	if s.verifySvc == nil {
-		return apperr.New(apperr.ErrInternal.Code, "验证码服务未初始化")
+		return "", apperr.New(apperr.ErrInternal.Code, "验证服务未初始化")
 	}
 	to := strings.TrimSpace(cfg.Username)
 	if to == "" || strings.TrimSpace(cfg.Host) == "" || strings.TrimSpace(cfg.Port) == "" ||
 		strings.TrimSpace(cfg.Password) == "" || strings.TrimSpace(cfg.From) == "" {
-		return apperr.ErrInvalidParam
+		return "", apperr.ErrInvalidParam
 	}
 	// 临时应用配置用于发送（不落库）
 	tempConfig := map[string]any{
@@ -140,13 +140,20 @@ func (s *Service) SendEmailVerificationCode(ctx context.Context, cfg dto.EmailCo
 	}
 	code, err := s.verifySvc.GenerateCode()
 	if err != nil {
-		return err
+		return "", err
+	}
+	identifier, err := s.verifySvc.GenerateIdentifier()
+	if err != nil {
+		return "", err
 	}
 	key := cache.GenerateEmailVerificationKey(to)
 	if err := s.verifySvc.StoreCode(ctx, key, code); err != nil {
-		return err
+		return "", err
 	}
-	return s.emailServ.SendVerificationCodeWithConfig(tempConfig, to, code)
+	if err := s.emailServ.SendVerificationCodeWithConfig(tempConfig, to, code, identifier); err != nil {
+		return "", err
+	}
+	return identifier, nil
 }
 
 // SendTestEmail 发送测试邮件，用于验证 SMTP 配置是否可用。
@@ -213,6 +220,16 @@ func (s *Service) GetHotSearches(ctx context.Context) ([]string, error) {
 		return []string{}, nil
 	}
 	return hotSearches, nil
+}
+
+func (s *Service) SaveMeiliSearchSyncTime(ctx context.Context, syncTime string) error {
+	if err := s.repo.SaveMeiliSearchSyncTime(ctx, syncTime); err != nil {
+		return err
+	}
+	if s.bizCache != nil {
+		_ = s.bizCache.DeletePattern(ctx, "blog:setting:*")
+	}
+	return nil
 }
 
 // GetHotSearchMode 返回热门搜索模式："FAKE" 伪热门，"REAL" 真热门

@@ -105,6 +105,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.GET("/settings/export", middleware.RequirePerm(roleSvc, "setting:export"), h.AdminExportSettings)
 		admin.POST("/settings/import", middleware.RequirePerm(roleSvc, "setting:import"), h.AdminImportSettings)
 		admin.POST("/search/sync", middleware.RequirePerm(roleSvc, "setting:search"), h.AdminSyncMeiliSearch)
+		admin.GET("/search/stats", middleware.RequirePerm(roleSvc, "setting:search:read"), h.AdminGetMeiliSearchStats)
 
 		// 独立配置接口
 		admin.GET("/settings/core", middleware.RequirePerm(roleSvc, "setting:core:read"), h.AdminGetCoreConfig)

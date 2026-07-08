@@ -1,1 +1,0 @@
-ALTER TABLE t_blog_core_config ADD COLUMN rss_enabled tinyint(1) DEFAULT 1 COMMENT '是否启用RSS订阅' AFTER privacy_policy;

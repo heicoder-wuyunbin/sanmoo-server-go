@@ -135,38 +135,64 @@ func shouldLogVerificationCode() bool {
 
 // SendVerificationCode 发送验证码邮件
 func (s *EmailService) SendVerificationCode(to string, code string) error {
-	return s.sendVerificationCode(s.currentConfig(), to, code)
+	return s.sendVerificationCode(s.currentConfig(), to, code, "")
 }
 
 // SendVerificationCodeWithConfig 使用临时 SMTP 配置发送验证码，不污染全局服务状态。
-func (s *EmailService) SendVerificationCodeWithConfig(config map[string]any, to string, code string) error {
-	return s.sendVerificationCode(smtpConfigFromMap(config), to, code)
+func (s *EmailService) SendVerificationCodeWithConfig(config map[string]any, to string, code string, identifier string) error {
+	return s.sendVerificationCode(smtpConfigFromMap(config), to, code, identifier)
 }
 
-func (s *EmailService) sendVerificationCode(cfg smtpConfig, to string, code string) error {
+func (s *EmailService) sendVerificationCode(cfg smtpConfig, to string, code string, identifier string) error {
 	if shouldLogVerificationCode() {
-		logger.Infof("开发环境登录验证码: email=%s code=%s", to, code)
+		if identifier != "" {
+			logger.Infof("开发环境登录验证码: email=%s code=%s identifier=%s", to, code, identifier)
+		} else {
+			logger.Infof("开发环境登录验证码: email=%s code=%s", to, code)
+		}
 	}
 
 	// 构建邮件内容
 	subject := "登录验证码"
-	body := fmt.Sprintf(`
-		<!DOCTYPE html>
-		<html>
-		<head>
-			<meta charset="UTF-8">
-			<title>登录验证码</title>
-		</head>
-		<body>
-			<h1>登录验证码</h1>
-			<p>您好，您正在尝试登录系统，以下是您的验证码：</p>
-			<p style="font-size: 24px; font-weight: bold; margin: 20px 0;">%s</p>
-			<p>验证码有效期为 15 分钟，请及时使用。</p>
-			<p>如果您没有发起此操作，请忽略此邮件。</p>
-			<p>发送时间：%s</p>
-		</body>
-		</html>
-	`, code, time.Now().Format("2006-01-02 15:04:05"))
+	var body string
+	if identifier != "" {
+		body = fmt.Sprintf(`
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<meta charset="UTF-8">
+				<title>登录验证码</title>
+			</head>
+			<body>
+				<h1>登录验证码</h1>
+				<p>您好，您正在验证邮箱配置，以下是您的验证码：</p>
+				<p style="font-size: 24px; font-weight: bold; margin: 20px 0;">验证码：%s</p>
+				<p style="font-size: 18px; margin: 10px 0;">识别码：<span style="font-weight: bold; color: #1890ff;">%s</span></p>
+				<p>请核对识别码再输入验证码，有效期 10 分钟。</p>
+				<p>如果您没有发起此操作，请忽略此邮件。</p>
+				<p>发送时间：%s</p>
+			</body>
+			</html>
+		`, code, identifier, time.Now().Format("2006-01-02 15:04:05"))
+	} else {
+		body = fmt.Sprintf(`
+			<!DOCTYPE html>
+			<html>
+			<head>
+				<meta charset="UTF-8">
+				<title>登录验证码</title>
+			</head>
+			<body>
+				<h1>登录验证码</h1>
+				<p>您好，您正在尝试登录系统，以下是您的验证码：</p>
+				<p style="font-size: 24px; font-weight: bold; margin: 20px 0;">%s</p>
+				<p>验证码有效期为 15 分钟，请及时使用。</p>
+				<p>如果您没有发起此操作，请忽略此邮件。</p>
+				<p>发送时间：%s</p>
+			</body>
+			</html>
+		`, code, time.Now().Format("2006-01-02 15:04:05"))
+	}
 
 	// 构建邮件头
 	message := fmt.Sprintf("From: %s\r\n", cfg.from)

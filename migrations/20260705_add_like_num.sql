@@ -1,1 +1,0 @@
-ALTER TABLE t_article ADD COLUMN like_num INT DEFAULT 0 NOT NULL COMMENT '点赞数';

@@ -15,7 +15,11 @@ const (
 	VerificationCodeExpiration = 15 * time.Minute
 	// VerificationCodeLength 验证码长度
 	VerificationCodeLength = 6
+	// VerifyCodeIdentifierLength 识别码长度
+	VerifyCodeIdentifierLength = 3
 )
+
+var identifierChars = []rune("ABCDEFGHIJKLMNOPQRSTUVWXYZ")
 
 // VerificationService 验证码服务
 type VerificationService struct {
@@ -34,6 +38,19 @@ func (s *VerificationService) GenerateCode() (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(bytes), nil
+}
+
+// GenerateIdentifier 生成识别码（3位大写字母）
+func (s *VerificationService) GenerateIdentifier() (string, error) {
+	result := make([]rune, VerifyCodeIdentifierLength)
+	for i := range result {
+		bytes := make([]byte, 1)
+		if _, err := rand.Read(bytes); err != nil {
+			return "", err
+		}
+		result[i] = identifierChars[int(bytes[0])%len(identifierChars)]
+	}
+	return string(result), nil
 }
 
 // StoreCode 存储验证码到Redis

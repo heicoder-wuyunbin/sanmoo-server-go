@@ -87,6 +87,15 @@ func (m *MeiliSearchClient) CreateIndexIfNotExists(ctx context.Context) error {
 	return nil
 }
 
+func (m *MeiliSearchClient) GetIndexStats(ctx context.Context) (int64, error) {
+	idx := m.client.Index(m.index)
+	stats, err := idx.GetStats(&meilisearch.StatsParams{})
+	if err != nil {
+		return 0, fmt.Errorf("meilisearch get index stats failed: %w", err)
+	}
+	return stats.NumberOfDocuments, nil
+}
+
 func getString(m map[string]interface{}, key string) string {
 	if v, ok := m[key].(string); ok {
 		return v

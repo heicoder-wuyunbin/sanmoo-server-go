@@ -493,3 +493,7 @@ ON DUPLICATE KEY UPDATE config_json = VALUES(config_json), updated_by = VALUES(u
 		return nil
 	})
 }
+
+func (r *Repository) SaveMeiliSearchSyncTime(ctx context.Context, syncTime string) error {
+	return r.db.WithContext(ctx).Table("t_blog_search_config").Where("id=1").Update("meilisearch_last_sync_time", syncTime).Error
+}

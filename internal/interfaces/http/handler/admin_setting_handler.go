@@ -1,11 +1,13 @@
 package handler
 
 import (
+	"fmt"
 	"net/http"
+	"time"
 
+	"sanmoo-server-go/internal/infrastructure/search"
 	"sanmoo-server-go/internal/interfaces/http/dto"
 	"sanmoo-server-go/internal/interfaces/http/middleware"
-	"sanmoo-server-go/internal/infrastructure/search"
 	apperr "sanmoo-server-go/internal/shared/errors"
 	"sanmoo-server-go/internal/shared/response"
 
@@ -47,11 +49,12 @@ func (h *Handler) AdminSendEmailVerificationCode(c *gin.Context) {
 		response.Fail(c, apperr.ErrInvalidParam)
 		return
 	}
-	if err := h.svc.Setting.SendEmailVerificationCode(c.Request.Context(), req.EmailConfig); err != nil {
+	identifier, err := h.svc.Setting.SendEmailVerificationCode(c.Request.Context(), req.EmailConfig)
+	if err != nil {
 		response.Fail(c, err)
 		return
 	}
-	response.Ok(c, dto.EmptyResponse{})
+	response.Ok(c, dto.EmailVerificationResponse{Identifier: identifier})
 }
 
 func (h *Handler) AdminVerifyEmailVerificationCode(c *gin.Context) {
@@ -158,10 +161,85 @@ func (h *Handler) AdminSyncMeiliSearch(c *gin.Context) {
 		return
 	}
 
+	if st != nil {
+		_ = h.svc.Setting.SaveMeiliSearchSyncTime(c.Request.Context(), time.Now().Format("2006-01-02 15:04:05"))
+	}
+
 	response.Ok(c, map[string]any{
 		"count": len(articles),
 		"msg":   "同步完成",
 	})
+}
+
+func (h *Handler) AdminGetMeiliSearchStats(c *gin.Context) {
+	st, err := h.svc.Setting.GetSettings(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+
+	host := ""
+	apiKey := ""
+	index := "articles"
+	lastSyncTime := "-"
+
+	if st != nil && st.UIConfig != nil {
+		if h, ok := st.UIConfig["meilisearchHost"].(string); ok {
+			host = h
+		}
+		if key, ok := st.UIConfig["meilisearchApiKey"].(string); ok {
+			apiKey = key
+		}
+		if idx, ok := st.UIConfig["meilisearchIndex"].(string); ok {
+			index = idx
+		}
+		if tVal, ok := st.UIConfig["meilisearchLastSyncTime"]; ok {
+			switch v := tVal.(type) {
+			case string:
+				lastSyncTime = v
+			case time.Time:
+				lastSyncTime = v.Format("2006-01-02 15:04:05")
+			case []uint8:
+				lastSyncTime = string(v)
+			default:
+				lastSyncTime = fmt.Sprintf("%v", v)
+			}
+		}
+	}
+
+	if host == "" {
+		response.Ok(c, map[string]any{
+			"articleCount": 0,
+			"indexStatus":  "unknown",
+			"lastSyncTime": lastSyncTime,
+		})
+		return
+	}
+
+	searchClient := search.NewMeiliSearchClient(host, apiKey, index)
+	count, err := searchClient.GetIndexStats(c.Request.Context())
+	if err != nil {
+		response.Ok(c, map[string]any{
+			"articleCount": 0,
+			"indexStatus":  "error",
+			"lastSyncTime": lastSyncTime,
+		})
+		return
+	}
+
+	response.Ok(c, map[string]any{
+		"articleCount": count,
+		"indexStatus":  "healthy",
+		"lastSyncTime": lastSyncTime,
+	})
+}
+
+func keys(m map[string]any) []string {
+	k := make([]string, 0, len(m))
+	for key := range m {
+		k = append(k, key)
+	}
+	return k
 }
 
 func (h *Handler) AdminGetCoreConfig(c *gin.Context) {

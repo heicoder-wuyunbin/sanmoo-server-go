@@ -128,3 +128,7 @@ type TopicArticleIDsResponse struct {
 type MapResponse struct {
 	Data map[string]interface{} `json:"data"`
 }
+
+type EmailVerificationResponse struct {
+	Identifier string `json:"identifier"`
+}

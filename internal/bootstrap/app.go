@@ -17,6 +17,7 @@ import (
 	maintenanceapp "sanmoo-server-go/internal/application/maintenance"
 	mpuserapp "sanmoo-server-go/internal/application/mpuser"
 	permsvc "sanmoo-server-go/internal/application/permission"
+	"sanmoo-server-go/internal/application/recommendation"
 	rolesvc "sanmoo-server-go/internal/application/role"
 	"sanmoo-server-go/internal/application/scheduler"
 	"sanmoo-server-go/internal/application/setting"
@@ -84,7 +85,14 @@ func New(cfg *config.Config) (*App, error) {
 	userSvc := user.NewService(repo)
 	tagSvc := tag.NewService(repo, bizCache)
 	categorySvc := category.NewService(repo, bizCache)
-	articleSvc := article.NewService(repo, bizCache)
+
+	recRegistry := recommendation.NewRegistry([]recommendation.Strategy{
+		recommendation.NewRuleStrategy(repo),
+		recommendation.NewWeightedStrategy(repo),
+		recommendation.NewCFStrategy(repo),
+	}, recommendation.StrategyRule)
+
+	articleSvc := article.NewService(repo, bizCache, recRegistry, repo)
 	topicSvc := topic.NewService(repo)
 	settingSvc := setting.NewService(repo, emailService, verificationService, bizCache)
 	fileSvc := file.NewService(repo)

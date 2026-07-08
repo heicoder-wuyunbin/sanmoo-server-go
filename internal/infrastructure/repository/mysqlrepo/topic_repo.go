@@ -666,3 +666,29 @@ func (r *Repository) GetHotSearchKeywords(ctx context.Context, limit int) ([]str
 	}
 	return result, nil
 }
+
+func (r *Repository) GetHotTagsFromArticles(ctx context.Context, limit int) ([]string, error) {
+	type tagRow struct {
+		Name  string
+		Count int64
+	}
+	var rows []tagRow
+	err := r.db.WithContext(ctx).
+		Table("t_tag").
+		Select("t_tag.name, COUNT(t_article_tag_rel.tag_id) as count").
+		Joins("JOIN t_article_tag_rel ON t_tag.id = t_article_tag_rel.tag_id").
+		Joins("JOIN t_article ON t_article_tag_rel.article_id = t_article.id").
+		Where("t_tag.deleted_at IS NULL AND t_article.is_published = 1").
+		Group("t_tag.id").
+		Order("count desc").
+		Limit(limit).
+		Scan(&rows).Error
+	if err != nil {
+		return nil, err
+	}
+	result := make([]string, 0, len(rows))
+	for _, row := range rows {
+		result = append(result, row.Name)
+	}
+	return result, nil
+}

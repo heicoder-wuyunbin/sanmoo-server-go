@@ -160,23 +160,47 @@ func (h *Handler) WebHotSearches(c *gin.Context) {
 
 	useRealHot := false
 	if st != nil && st.UIConfig != nil {
-		if modeBool, ok := st.UIConfig["hotSearchMode"].(bool); ok {
-			useRealHot = modeBool
-		} else if modeStr, ok := st.UIConfig["hotSearchMode"].(string); ok {
-			useRealHot = modeStr == "REAL" || modeStr == "true" || modeStr == "TRUE"
-		} else if modeInt, ok := st.UIConfig["hotSearchMode"].(int); ok {
-			useRealHot = modeInt == 1
-		} else if modeInt64, ok := st.UIConfig["hotSearchMode"].(int64); ok {
-			useRealHot = modeInt64 == 1
-		} else if modeUint, ok := st.UIConfig["hotSearchMode"].(uint); ok {
-			useRealHot = modeUint == 1
-		} else if modeUint8, ok := st.UIConfig["hotSearchMode"].(uint8); ok {
-			useRealHot = modeUint8 == 1
+		if modeVal, ok := st.UIConfig["hotSearchMode"]; ok {
+			switch v := modeVal.(type) {
+			case bool:
+				useRealHot = v
+			case string:
+				useRealHot = v == "REAL" || v == "true" || v == "TRUE"
+			case float64:
+				useRealHot = v == 1
+			case int, int8, int16, int32, int64:
+				useRealHot = v == 1
+			case uint, uint8, uint16, uint32, uint64:
+				useRealHot = v == 1
+			}
+		}
+	}
+
+	meiliSearchAvailable := false
+	if st != nil && st.UIConfig != nil {
+		if engine, ok := st.UIConfig["searchEngine"].(string); ok {
+			if engine == "MEILISEARCH" {
+				if host, ok := st.UIConfig["meilisearchHost"].(string); ok && host != "" {
+					apiKey := ""
+					if key, ok := st.UIConfig["meilisearchApiKey"].(string); ok {
+						apiKey = key
+					}
+					index := "articles"
+					if idx, ok := st.UIConfig["meilisearchIndex"].(string); ok {
+						index = idx
+					}
+					searchClient := search.NewMeiliSearchClient(host, apiKey, index)
+					_, err := searchClient.GetIndexStats(ctx)
+					if err == nil {
+						meiliSearchAvailable = true
+					}
+				}
+			}
 		}
 	}
 
 	var hotSearches []string
-	if useRealHot {
+	if useRealHot && meiliSearchAvailable {
 		hotSearches, err = h.svc.Article.GetRealHotSearches(ctx, 10)
 		if err != nil || len(hotSearches) == 0 {
 			hotSearches, _ = h.svc.Setting.GetHotSearches(ctx)
@@ -574,12 +598,8 @@ func (h *Handler) WebSearch(c *gin.Context) {
 
 	useMeiliSearch := false
 	if st != nil && st.UIConfig != nil {
-		if modeBool, ok := st.UIConfig["hotSearchMode"].(bool); ok {
-			useMeiliSearch = modeBool
-		} else if modeStr, ok := st.UIConfig["hotSearchMode"].(string); ok {
-			useMeiliSearch = modeStr == "REAL"
-		} else if modeNum, ok := st.UIConfig["hotSearchMode"].(float64); ok {
-			useMeiliSearch = modeNum != 0
+		if engine, ok := st.UIConfig["searchEngine"].(string); ok {
+			useMeiliSearch = engine == "MEILISEARCH"
 		}
 	}
 
