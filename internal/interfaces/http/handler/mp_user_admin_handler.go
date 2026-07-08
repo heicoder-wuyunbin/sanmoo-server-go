@@ -58,6 +58,12 @@ func (h *Handler) AdminMPUserProfile(c *gin.Context) {
 }
 
 // AdminMPUserGenerateProfile 生成用户六边形画像。
+//
+// FROZEN (L2): 该接口属于"重运营画像"能力，已于 L2 冻结。
+// 小程序用户域已降级为"轻阅读用户能力"，不再主动生成六边形画像。
+// 接口签名保留以兼容现有管理端调用，避免前端直接崩溃；
+// 实际计算逻辑已在 service 层短路，返回空画像结构。
+// 详见 documents/mp-user-domain-downgrade.md。
 func (h *Handler) AdminMPUserGenerateProfile(c *gin.Context) {
 	openID := c.Param("openid")
 	if openID == "" {
@@ -73,6 +79,12 @@ func (h *Handler) AdminMPUserGenerateProfile(c *gin.Context) {
 }
 
 // AdminMPUserGenerateTags 自动生成用户标签。
+//
+// FROZEN (L2): 该接口属于"重运营标签"能力，已于 L2 冻结。
+// 小程序用户域已降级为"轻阅读用户能力"，不再自动生成行为/兴趣标签。
+// 接口签名保留以兼容现有管理端调用，避免前端直接崩溃；
+// 实际计算逻辑已在 service 层短路，返回空标签列表。
+// 详见 documents/mp-user-domain-downgrade.md。
 func (h *Handler) AdminMPUserGenerateTags(c *gin.Context) {
 	openID := c.Param("openid")
 	if openID == "" {
@@ -117,6 +129,12 @@ func (h *Handler) AdminMPUserDeleteTag(c *gin.Context) {
 }
 
 // AdminMPUserRefreshRadar 刷新雷达图（行为标签 + 兴趣维度 + 六边形画像）。
+//
+// FROZEN (L2): 该接口属于"雷达画像生成"能力，已于 L2 冻结。
+// 小程序用户域已降级为"轻阅读用户能力"，不再聚合生成雷达画像。
+// 接口签名保留以兼容现有管理端调用，避免前端直接崩溃；
+// 实际计算逻辑已在 service 层短路，返回空雷达结构。
+// 详见 documents/mp-user-domain-downgrade.md。
 func (h *Handler) AdminMPUserRefreshRadar(c *gin.Context) {
 	openID := c.Param("openid")
 	if openID == "" {
