@@ -82,6 +82,7 @@ func (s *Service) GetRole(ctx context.Context, id uint64) (*domrole.RoleWithPerm
 	return &domrole.RoleWithPermissions{Role: *role, PermKeys: permKeys}, nil
 }
 
+// FROZEN (L3): 角色管理已冻结，不再允许创建新角色
 func (s *Service) CreateRole(ctx context.Context, r *domrole.Role) (uint64, error) {
 	if err := r.Validate(); err != nil {
 		return 0, err
@@ -97,6 +98,7 @@ func (s *Service) CreateRole(ctx context.Context, r *domrole.Role) (uint64, erro
 	return id, err
 }
 
+// FROZEN (L3): 角色管理已冻结，不再允许更新角色
 func (s *Service) UpdateRole(ctx context.Context, r *domrole.Role) error {
 	if err := r.Validate(); err != nil {
 		return err
@@ -112,6 +114,7 @@ func (s *Service) UpdateRole(ctx context.Context, r *domrole.Role) error {
 	return err
 }
 
+// FROZEN (L3): 角色管理已冻结，不再允许删除角色
 func (s *Service) DeleteRole(ctx context.Context, id uint64) error {
 	role, err := s.roleRepo.FindByIDRole(ctx, id)
 	if err != nil {
@@ -128,6 +131,7 @@ func (s *Service) DeleteRole(ctx context.Context, id uint64) error {
 	return err
 }
 
+// FROZEN (L3): 角色权限分配已冻结，不再允许修改角色权限
 func (s *Service) AssignPermissions(ctx context.Context, roleID uint64, permKeys []string) error {
 	_, err := s.roleRepo.FindByIDRole(ctx, roleID)
 	if err != nil {
@@ -232,6 +236,7 @@ func (s *Service) HasPermission(ctx context.Context, userID uint64, permKey stri
 	return permSet[permKey], nil
 }
 
+// FROZEN (L3): 用户角色分配已冻结，不再允许修改用户角色
 func (s *Service) AssignUserRoles(ctx context.Context, userID uint64, roleIDs []uint64) error {
 	err := s.roleRepo.AssignUserRoles(ctx, userID, roleIDs)
 	if err == nil {

@@ -45,7 +45,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 	admin.Use(middleware.JWTAuth(jwt, repo))
 	admin.Use(middleware.RateLimit(redisClient, middleware.AdminRateLimit))
 	{
-		// 用户管理
+		// 用户管理 - FROZEN (L3): 用户管理已冻结，前端应隐藏入口
 		admin.GET("/users", middleware.RequirePerm(roleSvc, "user:list"), h.GetUsers)
 		admin.GET("/users/export", middleware.RequirePerm(roleSvc, "user:export"), h.ExportUsers)
 		admin.POST("/users", middleware.RequirePerm(roleSvc, "user:create"), h.CreateUser)
@@ -149,19 +149,19 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.GET("/dashboard/tag-read-statistics", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.TagReadStatistics)
 		admin.GET("/dashboard/content-trend", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.ContentTrend)
 
-		// 缓存管理
+		// 缓存管理 - FROZEN (L3): 缓存管理已冻结，前端应隐藏入口
 		admin.POST("/cache/clear", middleware.RequirePerm(roleSvc, "cache:clear"), h.ClearCache)
 		admin.POST("/cache/warmup", middleware.RequirePerm(roleSvc, "cache:warmup"), h.WarmupCache)
 		admin.GET("/cache/stats", middleware.RequirePerm(roleSvc, "cache:stats"), h.CacheStats)
 
-		// 备份管理
+		// 备份管理 - FROZEN (L3): 备份管理已冻结，前端应隐藏入口
 		admin.POST("/backup/export", middleware.RequirePerm(roleSvc, "backup:export"), h.ExportData)
 		admin.GET("/backup/list", middleware.RequirePerm(roleSvc, "backup:list"), h.ListBackups)
 		admin.GET("/backup/download/:fileName", middleware.RequirePerm(roleSvc, "backup:download"), h.DownloadBackup)
 		admin.DELETE("/backup/:fileName", middleware.RequirePerm(roleSvc, "backup:delete"), h.DeleteBackup)
 		admin.GET("/backup/stats", middleware.RequirePerm(roleSvc, "backup:stats"), h.GetBackupStats)
 
-		// 微信用户管理
+		// 微信用户管理 - FROZEN (L2/L3): 小程序用户管理已冻结，前端应隐藏入口
 		admin.GET("/mp-users", middleware.RequirePerm(roleSvc, "mpuser:list"), h.AdminMPUsers)
 		admin.GET("/mp-users/:openid", middleware.RequirePerm(roleSvc, "mpuser:detail"), h.AdminMPUserDetail)
 		admin.GET("/mp-users/:openid/profile", middleware.RequirePerm(roleSvc, "mpuser:profile"), h.AdminMPUserProfile)
@@ -171,7 +171,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.DELETE("/mp-users/:openid/tags/:tagId", middleware.RequirePerm(roleSvc, "mpuser:tags"), h.AdminMPUserDeleteTag)
 		admin.POST("/mp-users/:openid/radar/refresh", middleware.RequirePerm(roleSvc, "mpuser:profile"), h.AdminMPUserRefreshRadar)
 
-		// 权限管理
+		// 权限管理 - FROZEN (L3): 权限管理已冻结，前端应隐藏入口
 		admin.GET("/permissions", middleware.RequirePerm(roleSvc, "permission:list"), h.GetPermissions)
 		admin.GET("/permissions/tree", middleware.RequirePerm(roleSvc, "permission:list"), h.GetPermissionTree)
 		admin.GET("/permissions/:id", middleware.RequirePerm(roleSvc, "permission:list"), h.GetPermission)
@@ -179,7 +179,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.PUT("/permissions/:id", middleware.RequirePerm(roleSvc, "permission:list"), h.UpdatePermission)
 		admin.DELETE("/permissions/:id", middleware.RequirePerm(roleSvc, "permission:list"), h.DeletePermission)
 
-		// 角色管理
+		// 角色管理 - FROZEN (L3): 角色管理已冻结，前端应隐藏入口
 		admin.GET("/roles", middleware.RequirePerm(roleSvc, "role:list"), h.GetRoles)
 		admin.GET("/roles/all", middleware.RequirePerm(roleSvc, "role:list"), h.GetAllRoles)
 		admin.GET("/roles/:id", middleware.RequirePerm(roleSvc, "role:list"), h.GetRole)
@@ -194,7 +194,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		// 当前用户菜单（前端动态菜单渲染用）
 		admin.GET("/user/menus", h.GetUserMenus)
 
-		// 数据维护
+		// 数据维护 - FROZEN (L3): 数据维护已冻结，前端应隐藏入口
 		admin.GET("/maintenance/stats", middleware.RequirePerm(roleSvc, "maintenance:stats"), h.AdminMaintenanceStats)
 		admin.POST("/maintenance/cleanup-logs", middleware.RequirePerm(roleSvc, "maintenance:cleanup"), h.AdminMaintenanceCleanupLogs)
 	}

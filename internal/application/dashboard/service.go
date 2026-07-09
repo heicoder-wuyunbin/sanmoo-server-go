@@ -57,34 +57,42 @@ func (s *Service) ErrorLogRecords(ctx context.Context, page, size int, keyword s
 	return pagination.NewPageData(list, total, page, size), nil
 }
 
+// FROZEN (L3): 访客记录管理已冻结，不再允许删除访客记录
 func (s *Service) DeleteVisitorRecord(ctx context.Context, id uint64) error {
 	return s.repo.DeleteVisitorRecord(ctx, id)
 }
 
+// FROZEN (L3): 访客记录管理已冻结，不再允许批量删除访客记录
 func (s *Service) BatchDeleteVisitorRecords(ctx context.Context, ids []uint64) error {
 	return s.repo.BatchDeleteVisitorRecords(ctx, ids)
 }
 
+// FROZEN (L3): 访客记录管理已冻结，不再允许清空访客记录
 func (s *Service) ClearAllVisitorRecords(ctx context.Context) error {
 	return s.repo.ClearAllVisitorRecords(ctx)
 }
 
+// FROZEN (L3): 错误日志管理已冻结，不再允许删除错误日志
 func (s *Service) DeleteErrorLog(ctx context.Context, id uint64) error {
 	return s.repo.DeleteErrorLog(ctx, id)
 }
 
+// FROZEN (L3): 错误日志管理已冻结，不再允许批量删除错误日志
 func (s *Service) BatchDeleteErrorLogs(ctx context.Context, ids []uint64) error {
 	return s.repo.BatchDeleteErrorLogs(ctx, ids)
 }
 
+// FROZEN (L3): 错误日志管理已冻结，不再允许清空错误日志
 func (s *Service) ClearAllErrorLogs(ctx context.Context) error {
 	return s.repo.ClearAllErrorLogs(ctx)
 }
 
+// FROZEN (L3): 错误日志管理已冻结，不再允许导入错误日志
 func (s *Service) ImportErrorLogs(ctx context.Context, logs []domdashboard.ErrorLogRecord) (int64, error) {
 	return s.repo.ImportErrorLogs(ctx, logs)
 }
 
+// FROZEN (L3): 错误日志管理已冻结，不再允许导出错误日志
 func (s *Service) ExportErrorLogs(ctx context.Context) ([]domdashboard.ErrorLogRecord, error) {
 	return s.repo.ExportErrorLogs(ctx)
 }
@@ -109,6 +117,7 @@ func (s *Service) TopicStatistics(ctx context.Context) ([]domdashboard.NameValue
 	return s.repo.TopicStatistics(ctx)
 }
 
+// FROZEN (L3): 小程序用户增长统计已冻结，不做用户增长分析
 func (s *Service) MpUserGrowth(ctx context.Context, days int) ([]domdashboard.DateCount, error) {
 	return s.repo.MpUserGrowth(ctx, days)
 }

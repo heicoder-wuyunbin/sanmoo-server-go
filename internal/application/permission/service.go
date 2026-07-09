@@ -94,6 +94,7 @@ func (s *Service) CreatePermission(ctx context.Context, p *domperm.Permission) (
 	return id, err
 }
 
+// FROZEN (L3): 权限管理已冻结，不再允许更新权限
 func (s *Service) UpdatePermission(ctx context.Context, p *domperm.Permission) error {
 	if err := p.Validate(); err != nil {
 		return err
@@ -109,6 +110,7 @@ func (s *Service) UpdatePermission(ctx context.Context, p *domperm.Permission) e
 	return err
 }
 
+// FROZEN (L3): 权限管理已冻结，不再允许删除权限
 func (s *Service) DeletePermission(ctx context.Context, id uint64) error {
 	_, err := s.repo.FindByIDPermission(ctx, id)
 	if err != nil {
