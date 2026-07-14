@@ -45,13 +45,26 @@ type MaintenanceStats struct {
 	TotalRows int64        `json:"totalRows"`
 }
 
+// retentionPolicies 定义各类日志数据的保留天数。
+// P3 数据治理：明确保留必要数据，清理过期行为日志，冻结表不纳入自动运营分析。
 var retentionPolicies = map[string]int{
-	"t_access_log":            30,
-	"t_error_log":             90,
-	"t_search_history":        30,
-	"t_mp_browse_history":     30,
-	"t_mp_reco_exposure":      30,
-	"t_statistics_article_pv": 365,
+	// 系统日志
+	"t_access_log":     90,  // 访问日志保留 90 天，用于安全排障
+	"t_error_log":      180, // 错误日志保留 180 天，用于故障排查
+	"t_search_history": 90,  // 搜索历史保留 90 天，用于搜索质量优化
+
+	// 小程序用户数据（轻阅读能力）
+	"t_mp_browse_history": 180, // 阅读历史保留 180 天，读者阅读记录
+	"t_mp_reco_exposure":  90,  // 推荐曝光记录保留 90 天，轻量推荐效果核对
+
+	// 冻结表（L2 已冻结，不再新增写入，定期清理历史数据）
+	"t_mp_user_behavior":  90, // 用户行为日志保留 90 天
+	"t_mp_user_interest":  90, // 用户兴趣维度保留 90 天
+	"t_mp_user_tag":       90, // 用户标签保留 90 天
+	"t_mp_user_profile":   90, // 用户画像保留 90 天
+
+	// 内容统计数据
+	"t_statistics_article_pv": 365, // 文章日 PV 汇总保留 365 天，内容表现回看
 }
 
 func (s *Service) CleanupExpiredLogs(ctx context.Context) (*CleanupReport, error) {
