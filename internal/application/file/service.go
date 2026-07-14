@@ -43,3 +43,7 @@ func (s *Service) UploadFileBytes(ctx context.Context, filename string, data []b
 func (s *Service) DeleteFile(ctx context.Context, id string) error {
 	return s.repo.DeleteByID(ctx, id)
 }
+
+func (s *Service) GetProxyURL(ctx context.Context, filePath string) (string, error) {
+	return s.repo.GetProxyURL(ctx, filePath)
+}

@@ -113,15 +113,37 @@ func (s *Service) SendLoginVerificationCode(ctx context.Context, username, passw
 	if err != nil {
 		return nil, err
 	}
+	identifier, err := s.verificationService.GenerateIdentifier()
+	if err != nil {
+		return nil, err
+	}
 	key := cache.GenerateLoginVerificationKey(u.ID)
 	if err := s.verificationService.StoreCode(ctx, key, code); err != nil {
 		return nil, err
 	}
-	if err := s.emailService.SendVerificationCode(u.Email, code); err != nil {
+	if err := s.emailService.SendVerificationCodeWithIdentifier(u.Email, code, identifier); err != nil {
 		return nil, err
 	}
 	// 前端依赖 userId 进行二次校验
-	return &dto.SendVerificationCodeResponse{UserID: u.ID}, nil
+	return &dto.SendVerificationCodeResponse{UserID: u.ID, Identifier: identifier}, nil
+}
+
+// CheckMFA 检查指定用户是否需要邮箱验证码（无需密码验证）
+func (s *Service) CheckMFA(ctx context.Context, username string) (bool, error) {
+	u, err := s.userRepo.FindByUsername(ctx, username)
+	if err != nil {
+		return false, apperr.ErrBadCredential
+	}
+	if s.emailService == nil || !s.emailService.IsConfigured() {
+		return false, nil
+	}
+	if !s.emailService.IsMFAEnabled() {
+		return false, nil
+	}
+	if !strings.Contains(strings.ToUpper(u.RoleName), "ADMIN") {
+		return false, nil
+	}
+	return u.Email != "", nil
 }
 
 func (s *Service) VerifyLoginVerificationCode(ctx context.Context, userID uint64, code string) (*dto.AuthLoginResponse, error) {

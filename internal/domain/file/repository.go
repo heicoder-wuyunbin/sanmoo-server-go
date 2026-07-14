@@ -14,4 +14,5 @@ type Repository interface {
 	Upload(ctx context.Context, fileHeader *multipart.FileHeader) (FileItem, error)
 	UploadBytes(ctx context.Context, filename string, data []byte) (FileItem, error)
 	DeleteByID(ctx context.Context, id string) error
+	GetProxyURL(ctx context.Context, filePath string) (string, error)
 }

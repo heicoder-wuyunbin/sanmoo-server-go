@@ -29,6 +29,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 	{
 		auth.POST("/login", h.Login)
 		auth.POST("/refresh", h.Refresh)
+		auth.POST("/check-mfa", h.CheckMFA)
 		auth.POST("/send-verification-code", h.SendLoginVerificationCode)
 		auth.POST("/verify-verification-code", h.VerifyLoginVerificationCode)
 	}
@@ -125,6 +126,8 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.GET("/files", middleware.RequirePerm(roleSvc, "file:list"), h.GetFiles)
 		admin.POST("/files/upload", middleware.RequirePerm(roleSvc, "file:upload"), h.UploadFile)
 		admin.DELETE("/files/:id", middleware.RequirePerm(roleSvc, "file:delete"), h.DeleteFile)
+		// 图片代理：302 重定向到临时 URL，避免过期（无需认证，因为文件路径本身就是唯一标识）
+		e.GET("/admin/files/image/*path", h.ProxyImage)
 
 		// 仪表盘
 		admin.GET("/dashboard", middleware.RequirePerm(roleSvc, "dashboard:read"), h.Dashboard)

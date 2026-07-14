@@ -94,3 +94,21 @@ func (h *Handler) DeleteFile(c *gin.Context) {
 	}
 	response.Ok(c, dto.EmptyResponse{})
 }
+
+// ProxyImage 代理图片请求，生成临时 URL 并 302 重定向，避免 URL 过期问题
+func (h *Handler) ProxyImage(c *gin.Context) {
+	filePath := c.Param("path")
+	if filePath == "" {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	// 去掉开头的斜杠
+	filePath = strings.TrimPrefix(filePath, "/")
+
+	proxyURL, err := h.svc.File.GetProxyURL(c.Request.Context(), filePath)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	c.Redirect(302, proxyURL)
+}

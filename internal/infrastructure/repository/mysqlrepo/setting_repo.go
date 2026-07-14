@@ -107,7 +107,7 @@ func (r *Repository) Get(ctx context.Context) (*domsetting.BlogSettings, error) 
 
 	// 从 infra 中提取存储字段
 	storage := map[string]any{}
-	storageFields := []string{"uploadStrategy", "uploadLocalDir", "uploadLocalUrlPrefix", "uploadQiniuBucket", "uploadQiniuDomain", "uploadQiniuAccessKey", "uploadQiniuSecretKey", "uploadAliyunEndpoint", "uploadAliyunBucket", "uploadAliyunDomain", "uploadAliyunAccessKey", "uploadAliyunSecretKey"}
+	storageFields := []string{"uploadStrategy", "uploadLocalDir", "uploadLocalUrlPrefix", "uploadQiniuBucket", "uploadQiniuDomain", "uploadQiniuRegion", "uploadQiniuAccessKey", "uploadQiniuSecretKey", "uploadAliyunEndpoint", "uploadAliyunBucket", "uploadAliyunDomain", "uploadAliyunAccessKey", "uploadAliyunSecretKey"}
 	for _, field := range storageFields {
 		if v, ok := infra[field]; ok {
 			storage[field] = v
@@ -220,7 +220,7 @@ ON DUPLICATE KEY UPDATE privacy_policy = VALUES(privacy_policy), updated_by = VA
 		if len(s.StorageConfig) > 0 {
 			storage := convertKeysCamelToSnake(s.StorageConfig)
 			storage["updated_by"] = operator
-			validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_qiniu_access_key", "upload_qiniu_secret_key", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "upload_aliyun_access_key", "upload_aliyun_secret_key", "updated_by"}
+			validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_qiniu_region", "upload_qiniu_access_key", "upload_qiniu_secret_key", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "upload_aliyun_access_key", "upload_aliyun_secret_key", "updated_by"}
 			filteredStorage := filterValidFields(storage, validStorageFields)
 			if len(filteredStorage) > 0 {
 				if err := tx.Table("t_blog_infrastructure_config").Where("id=1").Updates(filteredStorage).Error; err != nil {
@@ -232,6 +232,7 @@ ON DUPLICATE KEY UPDATE privacy_policy = VALUES(privacy_policy), updated_by = VA
 			prefix, _ := storage["upload_local_url_prefix"].(string)
 			qiniuBucket, _ := storage["upload_qiniu_bucket"].(string)
 			qiniuDomain, _ := storage["upload_qiniu_domain"].(string)
+			qiniuRegion, _ := storage["upload_qiniu_region"].(string)
 			qiniuAccessKey, _ := storage["upload_qiniu_access_key"].(string)
 			qiniuSecretKey, _ := storage["upload_qiniu_secret_key"].(string)
 			aliyunEndpoint, _ := storage["upload_aliyun_endpoint"].(string)
@@ -239,7 +240,7 @@ ON DUPLICATE KEY UPDATE privacy_policy = VALUES(privacy_policy), updated_by = VA
 			aliyunDomain, _ := storage["upload_aliyun_domain"].(string)
 			aliyunAccessKey, _ := storage["upload_aliyun_access_key"].(string)
 			aliyunSecretKey, _ := storage["upload_aliyun_secret_key"].(string)
-			r.setUploadStorageConfig(strings.TrimSpace(strategy), strings.TrimSpace(dir), strings.TrimSpace(prefix), strings.TrimSpace(qiniuBucket), strings.TrimSpace(qiniuDomain), strings.TrimSpace(qiniuAccessKey), strings.TrimSpace(qiniuSecretKey), strings.TrimSpace(aliyunEndpoint), strings.TrimSpace(aliyunBucket), strings.TrimSpace(aliyunDomain), strings.TrimSpace(aliyunAccessKey), strings.TrimSpace(aliyunSecretKey))
+			r.setUploadStorageConfig(strings.TrimSpace(strategy), strings.TrimSpace(dir), strings.TrimSpace(prefix), strings.TrimSpace(qiniuBucket), strings.TrimSpace(qiniuDomain), strings.TrimSpace(qiniuRegion), strings.TrimSpace(qiniuAccessKey), strings.TrimSpace(qiniuSecretKey), strings.TrimSpace(aliyunEndpoint), strings.TrimSpace(aliyunBucket), strings.TrimSpace(aliyunDomain), strings.TrimSpace(aliyunAccessKey), strings.TrimSpace(aliyunSecretKey))
 		}
 		if len(s.EmailConfig) > 0 {
 			b, err := json.Marshal(s.EmailConfig)
@@ -433,20 +434,58 @@ func (r *Repository) GetStorageConfig(ctx context.Context) (domsetting.StorageCo
 	infra := convertKeysSnakeToCamel(infraRaw)
 	// 只保留存储相关字段
 	storage := map[string]any{}
-	storageFields := []string{"uploadStrategy", "uploadLocalDir", "uploadLocalUrlPrefix", "uploadQiniuBucket", "uploadQiniuDomain", "uploadAliyunEndpoint", "uploadAliyunBucket", "uploadAliyunDomain"}
+	storageFields := []string{"uploadStrategy", "uploadLocalDir", "uploadLocalUrlPrefix", "uploadQiniuBucket", "uploadQiniuDomain", "uploadQiniuRegion", "uploadQiniuAccessKey", "uploadQiniuSecretKey", "uploadAliyunEndpoint", "uploadAliyunBucket", "uploadAliyunDomain", "uploadAliyunAccessKey", "uploadAliyunSecretKey"}
 	for _, field := range storageFields {
 		if v, ok := infra[field]; ok {
 			storage[field] = v
 		}
 	}
+
 	return domsetting.StorageConfig(storage), nil
+}
+
+// LoadStorageConfig 从数据库加载存储配置到内存，启动时调用
+func (r *Repository) LoadStorageConfig(ctx context.Context) error {
+	cfg, err := r.GetStorageConfig(ctx)
+	if err != nil {
+		return err
+	}
+	strategy, _ := cfg["uploadStrategy"].(string)
+	dir, _ := cfg["uploadLocalDir"].(string)
+	prefix, _ := cfg["uploadLocalUrlPrefix"].(string)
+	qiniuBucket, _ := cfg["uploadQiniuBucket"].(string)
+	qiniuDomain, _ := cfg["uploadQiniuDomain"].(string)
+	qiniuRegion, _ := cfg["uploadQiniuRegion"].(string)
+	qiniuAccessKey, _ := cfg["uploadQiniuAccessKey"].(string)
+	qiniuSecretKey, _ := cfg["uploadQiniuSecretKey"].(string)
+	aliyunEndpoint, _ := cfg["uploadAliyunEndpoint"].(string)
+	aliyunBucket, _ := cfg["uploadAliyunBucket"].(string)
+	aliyunDomain, _ := cfg["uploadAliyunDomain"].(string)
+	aliyunAccessKey, _ := cfg["uploadAliyunAccessKey"].(string)
+	aliyunSecretKey, _ := cfg["uploadAliyunSecretKey"].(string)
+	r.setUploadStorageConfig(
+		strings.TrimSpace(strategy),
+		strings.TrimSpace(dir),
+		strings.TrimSpace(prefix),
+		strings.TrimSpace(qiniuBucket),
+		strings.TrimSpace(qiniuDomain),
+		strings.TrimSpace(qiniuRegion),
+		strings.TrimSpace(qiniuAccessKey),
+		strings.TrimSpace(qiniuSecretKey),
+		strings.TrimSpace(aliyunEndpoint),
+		strings.TrimSpace(aliyunBucket),
+		strings.TrimSpace(aliyunDomain),
+		strings.TrimSpace(aliyunAccessKey),
+		strings.TrimSpace(aliyunSecretKey),
+	)
+	return nil
 }
 
 func (r *Repository) UpdateStorageConfig(ctx context.Context, cfg domsetting.StorageConfig, operator string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		storage := convertKeysCamelToSnake(map[string]any(cfg))
 		storage["updated_by"] = operator
-		validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_qiniu_access_key", "upload_qiniu_secret_key", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "upload_aliyun_access_key", "upload_aliyun_secret_key", "updated_by"}
+		validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_qiniu_region", "upload_qiniu_access_key", "upload_qiniu_secret_key", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "upload_aliyun_access_key", "upload_aliyun_secret_key", "updated_by"}
 		filteredStorage := filterValidFields(storage, validStorageFields)
 		if len(filteredStorage) > 0 {
 			if err := tx.Table("t_blog_infrastructure_config").Where("id=1").Updates(filteredStorage).Error; err != nil {
@@ -458,6 +497,7 @@ func (r *Repository) UpdateStorageConfig(ctx context.Context, cfg domsetting.Sto
 		prefix, _ := storage["upload_local_url_prefix"].(string)
 		qiniuBucket, _ := storage["upload_qiniu_bucket"].(string)
 		qiniuDomain, _ := storage["upload_qiniu_domain"].(string)
+		qiniuRegion, _ := storage["upload_qiniu_region"].(string)
 		qiniuAccessKey, _ := storage["upload_qiniu_access_key"].(string)
 		qiniuSecretKey, _ := storage["upload_qiniu_secret_key"].(string)
 		aliyunEndpoint, _ := storage["upload_aliyun_endpoint"].(string)
@@ -465,7 +505,7 @@ func (r *Repository) UpdateStorageConfig(ctx context.Context, cfg domsetting.Sto
 		aliyunDomain, _ := storage["upload_aliyun_domain"].(string)
 		aliyunAccessKey, _ := storage["upload_aliyun_access_key"].(string)
 		aliyunSecretKey, _ := storage["upload_aliyun_secret_key"].(string)
-		r.setUploadStorageConfig(strings.TrimSpace(strategy), strings.TrimSpace(dir), strings.TrimSpace(prefix), strings.TrimSpace(qiniuBucket), strings.TrimSpace(qiniuDomain), strings.TrimSpace(qiniuAccessKey), strings.TrimSpace(qiniuSecretKey), strings.TrimSpace(aliyunEndpoint), strings.TrimSpace(aliyunBucket), strings.TrimSpace(aliyunDomain), strings.TrimSpace(aliyunAccessKey), strings.TrimSpace(aliyunSecretKey))
+		r.setUploadStorageConfig(strings.TrimSpace(strategy), strings.TrimSpace(dir), strings.TrimSpace(prefix), strings.TrimSpace(qiniuBucket), strings.TrimSpace(qiniuDomain), strings.TrimSpace(qiniuRegion), strings.TrimSpace(qiniuAccessKey), strings.TrimSpace(qiniuSecretKey), strings.TrimSpace(aliyunEndpoint), strings.TrimSpace(aliyunBucket), strings.TrimSpace(aliyunDomain), strings.TrimSpace(aliyunAccessKey), strings.TrimSpace(aliyunSecretKey))
 		return nil
 	})
 }

@@ -17,6 +17,7 @@ type Repository struct {
 	qiniuSecretKey  string
 	qiniuBucket     string
 	qiniuDomain     string
+	qiniuRegion     string
 	aliyunEndpoint  string
 	aliyunBucket    string
 	aliyunDomain    string
@@ -56,10 +57,10 @@ func (r *Repository) getUploadURLPrefix() string {
 	return r.uploadURLPrefix
 }
 
-func (r *Repository) getQiniuConfig() (accessKey, secretKey, bucket, domain string) {
+func (r *Repository) getQiniuConfig() (accessKey, secretKey, bucket, domain, region string) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
-	return r.qiniuAccessKey, r.qiniuSecretKey, r.qiniuBucket, r.qiniuDomain
+	return r.qiniuAccessKey, r.qiniuSecretKey, r.qiniuBucket, r.qiniuDomain, r.qiniuRegion
 }
 
 func (r *Repository) getAliyunConfig() (endpoint, bucket, domain, accessKey, secretKey string) {
@@ -68,7 +69,7 @@ func (r *Repository) getAliyunConfig() (endpoint, bucket, domain, accessKey, sec
 	return r.aliyunEndpoint, r.aliyunBucket, r.aliyunDomain, r.aliyunAccessKey, r.aliyunSecretKey
 }
 
-func (r *Repository) setUploadStorageConfig(uploadStrategy, localDir, urlPrefix, qiniuBucket, qiniuDomain, qiniuAccessKey, qiniuSecretKey, aliyunEndpoint, aliyunBucket, aliyunDomain, aliyunAccessKey, aliyunSecretKey string) {
+func (r *Repository) setUploadStorageConfig(uploadStrategy, localDir, urlPrefix, qiniuBucket, qiniuDomain, qiniuRegion, qiniuAccessKey, qiniuSecretKey, aliyunEndpoint, aliyunBucket, aliyunDomain, aliyunAccessKey, aliyunSecretKey string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if uploadStrategy != "" {
@@ -85,6 +86,9 @@ func (r *Repository) setUploadStorageConfig(uploadStrategy, localDir, urlPrefix,
 	}
 	if qiniuDomain != "" {
 		r.qiniuDomain = qiniuDomain
+	}
+	if qiniuRegion != "" {
+		r.qiniuRegion = qiniuRegion
 	}
 	if qiniuAccessKey != "" {
 		r.qiniuAccessKey = qiniuAccessKey

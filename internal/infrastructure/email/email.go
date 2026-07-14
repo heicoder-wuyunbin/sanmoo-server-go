@@ -138,6 +138,11 @@ func (s *EmailService) SendVerificationCode(to string, code string) error {
 	return s.sendVerificationCode(s.currentConfig(), to, code, "")
 }
 
+// SendVerificationCodeWithIdentifier 发送带识别码的验证码邮件
+func (s *EmailService) SendVerificationCodeWithIdentifier(to string, code string, identifier string) error {
+	return s.sendVerificationCode(s.currentConfig(), to, code, identifier)
+}
+
 // SendVerificationCodeWithConfig 使用临时 SMTP 配置发送验证码，不污染全局服务状态。
 func (s *EmailService) SendVerificationCodeWithConfig(config map[string]any, to string, code string, identifier string) error {
 	return s.sendVerificationCode(smtpConfigFromMap(config), to, code, identifier)

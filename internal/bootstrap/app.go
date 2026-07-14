@@ -58,6 +58,12 @@ func New(cfg *config.Config) (*App, error) {
 
 	logger.Infof("初始化仓库...")
 	repo := mysqlrepo.New(database, "uploads", "/uploads/", "", "", "", "")
+	// 启动时从数据库加载存储配置，确保重启后七牛云等配置不丢失
+	if err := repo.LoadStorageConfig(context.Background()); err != nil {
+		logger.Warnf("加载存储配置失败（使用默认配置）: %v", err)
+	} else {
+		logger.Infof("存储配置加载成功")
+	}
 	logger.Infof("仓库初始化成功")
 
 	logger.Infof("初始化JWT管理器...")

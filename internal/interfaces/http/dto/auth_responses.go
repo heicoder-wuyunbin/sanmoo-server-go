@@ -24,5 +24,6 @@ type MPAuthSessionResponse struct {
 }
 
 type SendVerificationCodeResponse struct {
-	UserID uint64 `json:"userId"`
+	UserID     uint64 `json:"userId"`
+	Identifier string `json:"identifier"`
 }

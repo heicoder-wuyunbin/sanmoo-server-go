@@ -25,6 +25,23 @@ func (h *Handler) Login(c *gin.Context) {
 	response.Ok(c, out)
 }
 
+// CheckMFA 检查指定用户是否需要邮箱验证码（无需密码）
+func (h *Handler) CheckMFA(c *gin.Context) {
+	var req struct {
+		Username string `json:"username" binding:"required"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	needMFA, err := h.svc.Auth.CheckMFA(c.Request.Context(), req.Username)
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, gin.H{"needMfa": needMFA})
+}
+
 func (h *Handler) SendLoginVerificationCode(c *gin.Context) {
 	var req dto.SendVerificationCodeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {

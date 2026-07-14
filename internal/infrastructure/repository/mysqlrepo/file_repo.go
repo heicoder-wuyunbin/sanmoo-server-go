@@ -84,7 +84,7 @@ func (r *Repository) List(ctx context.Context, q domfile.ListQuery) ([]domfile.F
 }
 
 func (r *Repository) listQiniuFiles(ctx context.Context, q domfile.ListQuery) ([]domfile.FileItem, int64, error) {
-	accessKey, secretKey, bucket, _ := r.getQiniuConfig()
+	accessKey, secretKey, bucket, _, _ := r.getQiniuConfig()
 	if accessKey == "" || secretKey == "" || bucket == "" {
 		return []domfile.FileItem{}, 0, nil
 	}
@@ -200,7 +200,7 @@ func (r *Repository) UploadBytes(ctx context.Context, filename string, data []by
 }
 
 func (r *Repository) uploadToQiniu(filename string, data []byte) (domfile.FileItem, error) {
-	accessKey, secretKey, bucket, _ := r.getQiniuConfig()
+	accessKey, secretKey, bucket, _, region := r.getQiniuConfig()
 	if accessKey == "" || secretKey == "" || bucket == "" {
 		return domfile.FileItem{}, apperr.New(apperr.ErrInternal.Code, "七牛云存储配置未完成")
 	}
@@ -227,7 +227,20 @@ func (r *Repository) uploadToQiniu(filename string, data []byte) (domfile.FileIt
 	upToken := putPolicy.UploadToken(mac)
 
 	cfg := storage.Config{}
-	cfg.Zone = &storage.ZoneHuanan
+	switch region {
+	case "z0":
+		cfg.Zone = &storage.ZoneHuadong
+	case "z1":
+		cfg.Zone = &storage.ZoneHuabei
+	case "z2":
+		cfg.Zone = &storage.ZoneHuanan
+	case "na0":
+		cfg.Zone = &storage.ZoneBeimei
+	case "as0":
+		cfg.Zone = &storage.ZoneXinjiapo
+	default:
+		cfg.Zone = &storage.ZoneHuanan
+	}
 	cfg.UseHTTPS = false
 
 	formUploader := storage.NewFormUploader(&cfg)
@@ -249,7 +262,29 @@ func (r *Repository) uploadToQiniu(filename string, data []byte) (domfile.FileIt
 }
 
 func (r *Repository) getQiniuFileURL(filename string) string {
-	accessKey, secretKey, _, domain := r.getQiniuConfig()
+	_, _, _, _, _ = r.getQiniuConfig()
+	// 返回代理 URL，由后端生成临时 URL 并 302 重定向，避免 URL 过期
+	// 加 /api 前缀让 Vite dev proxy 能正确转发到后端
+	return "/api/admin/files/image/" + filename
+}
+
+// GetProxyURL 生成临时访问 URL 用于 302 重定向
+func (r *Repository) GetProxyURL(ctx context.Context, filePath string) (string, error) {
+	strategy := r.getUploadStrategy()
+	switch strategy {
+	case "QINIU":
+		return r.getQiniuDirectURL(filePath), nil
+	case "ALIYUN":
+		return r.getAliyunFileURL(filePath), nil
+	default:
+		// 本地存储：返回本地 URL
+		return joinURL(r.getUploadURLPrefix(), filePath), nil
+	}
+}
+
+// getQiniuDirectURL 生成七牛云带 token 的临时 URL（仅用于代理重定向）
+func (r *Repository) getQiniuDirectURL(filename string) string {
+	accessKey, secretKey, _, domain, _ := r.getQiniuConfig()
 	if domain == "" {
 		domain = r.getUploadURLPrefix()
 	}
@@ -366,7 +401,7 @@ func (r *Repository) DeleteByID(ctx context.Context, id string) error {
 }
 
 func (r *Repository) deleteFromQiniu(ctx context.Context, id string) error {
-	accessKey, secretKey, bucket, _ := r.getQiniuConfig()
+	accessKey, secretKey, bucket, _, _ := r.getQiniuConfig()
 	if accessKey == "" || secretKey == "" || bucket == "" {
 		return apperr.New(apperr.ErrInternal.Code, "七牛云存储配置未完成")
 	}
