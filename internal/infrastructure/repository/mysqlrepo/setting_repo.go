@@ -75,12 +75,8 @@ func (r *Repository) Get(ctx context.Context) (*domsetting.BlogSettings, error) 
 	if err := r.db.WithContext(ctx).Table("t_blog_infrastructure_config").Where("id=1").Take(&infraRaw).Error; err != nil {
 		return nil, err
 	}
-	// 合规配置是隐私、备案和数据保留信息的唯一运行时来源。旧表只作为
-	// 尚未执行迁移的安装环境的兼容回退，不能再作为写入目标。
 	if err := r.db.WithContext(ctx).Table("t_blog_compliance_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
-		if err := r.db.WithContext(ctx).Table("t_blog_privacy_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	brand := convertKeysSnakeToCamel(brandRaw)
@@ -395,10 +391,7 @@ func (r *Repository) UpdateSearchConfig(ctx context.Context, cfg domsetting.Sear
 func (r *Repository) GetPrivacyConfig(ctx context.Context) (domsetting.PrivacyConfig, error) {
 	privacyRaw := map[string]any{}
 	if err := r.db.WithContext(ctx).Table("t_blog_compliance_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
-		// 兼容尚未执行 L1 迁移的旧部署；一旦执行保存即迁移到新表。
-		if err := r.db.WithContext(ctx).Table("t_blog_privacy_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 	privacy := convertKeysSnakeToCamel(privacyRaw)
 	delete(privacy, "id")
