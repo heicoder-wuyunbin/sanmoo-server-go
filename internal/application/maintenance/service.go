@@ -46,11 +46,11 @@ type MaintenanceStats struct {
 }
 
 var retentionPolicies = map[string]int{
-	"t_access_log":            90,
-	"t_error_log":             180,
-	"t_search_history":        90,
-	"t_mp_browse_history":     180,
-	"t_mp_reco_exposure":      90,
+	"t_access_log":            30,
+	"t_error_log":             90,
+	"t_search_history":        30,
+	"t_mp_browse_history":     30,
+	"t_mp_reco_exposure":      30,
 	"t_statistics_article_pv": 365,
 }
 
