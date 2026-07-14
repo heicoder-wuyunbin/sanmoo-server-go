@@ -43,6 +43,15 @@ func (h *Handler) MpSettings(c *gin.Context) {
 	response.Ok(c, resp)
 }
 
+func (h *Handler) MpCompliance(c *gin.Context) {
+	out, err := h.svc.Setting.GetPublicCompliance(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, out)
+}
+
 func (h *Handler) MpRecommendations(c *gin.Context) {
 	articleID := parseUintDefault(c.Query("articleId"), 0)
 	size := parseIntDefault(c.Query("size"), 10)
@@ -367,18 +376,23 @@ func (h *Handler) MpArchives(c *gin.Context) {
 }
 
 func (h *Handler) MpPrivacyPolicy(c *gin.Context) {
-	out, err := h.svc.Setting.GetPrivacyPolicy(c.Request.Context())
+	compliance, err := h.svc.Setting.GetPublicCompliance(c.Request.Context())
 	if err != nil {
 		response.Fail(c, err)
 		return
 	}
+	out, _ := compliance["privacyPolicy"].(string)
 	contentHtml := out
 	if out != "" {
 		if html, mErr := markdown.ToHTML(out); mErr == nil {
 			contentHtml = html
 		}
 	}
-	response.Ok(c, map[string]any{"content": contentHtml})
+	response.Ok(c, map[string]any{
+		"content":              contentHtml,
+		"dataRetentionPolicy":  compliance["dataRetentionPolicy"],
+		"accountDeletionGuide": compliance["accountDeletionGuide"],
+	})
 }
 
 func (h *Handler) MpDeleteUser(c *gin.Context) {

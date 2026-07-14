@@ -77,8 +77,12 @@ func (r *Repository) Get(ctx context.Context) (*domsetting.BlogSettings, error) 
 	if err := r.db.WithContext(ctx).Table("t_blog_search_config").Where("id=1").Take(&searchRaw).Error; err != nil {
 		return nil, err
 	}
-	if err := r.db.WithContext(ctx).Table("t_blog_privacy_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
-		return nil, err
+	// 合规配置是隐私、备案和数据保留信息的唯一运行时来源。旧表只作为
+	// 尚未执行迁移的安装环境的兼容回退，不能再作为写入目标。
+	if err := r.db.WithContext(ctx).Table("t_blog_compliance_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
+		if err := r.db.WithContext(ctx).Table("t_blog_privacy_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
+			return nil, err
+		}
 	}
 	if err := r.db.WithContext(ctx).Table("t_blog_storage_config").Where("id=1").Take(&storageRaw).Error; err != nil {
 		return nil, err
@@ -152,7 +156,7 @@ func (r *Repository) Update(ctx context.Context, s *domsetting.BlogSettings, ope
 			}
 			if len(privacyPart) > 0 {
 				if err := tx.Exec(`
-INSERT INTO t_blog_privacy_config(id, privacy_policy, updated_by)
+INSERT INTO t_blog_compliance_config(id, privacy_policy, updated_by)
 VALUES(1, ?, ?)
 ON DUPLICATE KEY UPDATE privacy_policy = VALUES(privacy_policy), updated_by = VALUES(updated_by), update_time = CURRENT_TIMESTAMP
 `, privacyPart["privacy_policy"], operator).Error; err != nil {
@@ -394,8 +398,11 @@ func (r *Repository) UpdateSearchConfig(ctx context.Context, cfg domsetting.Sear
 
 func (r *Repository) GetPrivacyConfig(ctx context.Context) (domsetting.PrivacyConfig, error) {
 	privacyRaw := map[string]any{}
-	if err := r.db.WithContext(ctx).Table("t_blog_privacy_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
-		return nil, err
+	if err := r.db.WithContext(ctx).Table("t_blog_compliance_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
+		// 兼容尚未执行 L1 迁移的旧部署；一旦执行保存即迁移到新表。
+		if err := r.db.WithContext(ctx).Table("t_blog_privacy_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
+			return nil, err
+		}
 	}
 	privacy := convertKeysSnakeToCamel(privacyRaw)
 	delete(privacy, "id")
@@ -410,12 +417,19 @@ func (r *Repository) GetPrivacyConfig(ctx context.Context) (domsetting.PrivacyCo
 func (r *Repository) UpdatePrivacyConfig(ctx context.Context, cfg domsetting.PrivacyConfig, operator string) error {
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		privacy := convertKeysCamelToSnake(map[string]any(cfg))
-		privacy["updated_by"] = operator
-		validPrivacyFields := []string{"privacy_policy", "updated_by"}
+		validPrivacyFields := []string{"privacy_policy", "filing_info", "contact_info", "data_retention_policy", "account_deletion_guide"}
 		filteredPrivacy := filterValidFields(privacy, validPrivacyFields)
 		if len(filteredPrivacy) > 0 {
-			if err := tx.Table("t_blog_privacy_config").Where("id=1").Updates(filteredPrivacy).Error; err != nil {
-				return err
+			filteredPrivacy["updated_by"] = operator
+			result := tx.Table("t_blog_compliance_config").Where("id=1").Updates(filteredPrivacy)
+			if result.Error != nil {
+				return result.Error
+			}
+			if result.RowsAffected == 0 {
+				filteredPrivacy["id"] = 1
+				if err := tx.Table("t_blog_compliance_config").Create(filteredPrivacy).Error; err != nil {
+					return err
+				}
 			}
 		}
 		return nil

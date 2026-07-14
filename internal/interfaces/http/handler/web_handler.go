@@ -23,6 +23,16 @@ import (
 
 func (h *Handler) WebSettings(c *gin.Context) { h.AdminGetSettings(c) }
 
+// WebCompliance exposes the stable, public subset of compliance settings.
+func (h *Handler) WebCompliance(c *gin.Context) {
+	out, err := h.svc.Setting.GetPublicCompliance(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, out)
+}
+
 func (h *Handler) WebCategories(c *gin.Context) { h.GetCategories(c) }
 
 func (h *Handler) WebTags(c *gin.Context) {

@@ -26,30 +26,31 @@ type CleanupResult struct {
 }
 
 type CleanupReport struct {
-	Tables      []CleanupResult `json:"tables"`
-	TotalDeleted int64          `json:"totalDeleted"`
-	Duration    int64           `json:"duration"` // milliseconds
-	Success     bool            `json:"success"`
-	Message     string          `json:"message"`
+	Tables       []CleanupResult `json:"tables"`
+	TotalDeleted int64           `json:"totalDeleted"`
+	Duration     int64           `json:"duration"` // milliseconds
+	Success      bool            `json:"success"`
+	Message      string          `json:"message"`
 }
 
 type TableStats struct {
-	TableName  string `json:"tableName"`
-	RowCount   int64  `json:"rowCount"`
-	DataSize   string `json:"dataSize"`
-	IndexSize  string `json:"indexSize"`
+	TableName string `json:"tableName"`
+	RowCount  int64  `json:"rowCount"`
+	DataSize  string `json:"dataSize"`
+	IndexSize string `json:"indexSize"`
 }
 
 type MaintenanceStats struct {
-	Tables []TableStats `json:"tables"`
-	TotalRows int64     `json:"totalRows"`
+	Tables    []TableStats `json:"tables"`
+	TotalRows int64        `json:"totalRows"`
 }
 
 var retentionPolicies = map[string]int{
-	"t_access_log":           90,
-	"t_error_log":            180,
-	"t_search_history":       90,
-	"t_mp_browse_history":    180,
+	"t_access_log":            90,
+	"t_error_log":             180,
+	"t_search_history":        90,
+	"t_mp_browse_history":     180,
+	"t_mp_reco_exposure":      90,
 	"t_statistics_article_pv": 365,
 }
 
@@ -66,6 +67,8 @@ func (s *Service) CleanupExpiredLogs(ctx context.Context) (*CleanupReport, error
 		timeField := "create_time"
 		if tableName == "t_search_history" {
 			timeField = "search_time"
+		} else if tableName == "t_mp_reco_exposure" {
+			timeField = "exposed_at"
 		} else if tableName == "t_statistics_article_pv" {
 			timeField = "pv_date"
 		}

@@ -204,6 +204,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 	web.Use(middleware.RateLimit(redisClient, middleware.PublicReadRateLimit))
 	{
 		web.GET("/settings", h.WebSettings)
+		web.GET("/compliance", h.WebCompliance)
 		web.GET("/categories", h.WebCategories)
 		web.GET("/tags", h.WebTags)
 		web.GET("/articles", h.WebArticles)
@@ -234,6 +235,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		mp.POST("/user/profile", h.MpUpdateUserProfile)
 		mp.POST("/behavior", h.MpReportBehavior)
 		mp.GET("/settings", h.MpSettings)
+		mp.GET("/compliance", h.MpCompliance)
 		mp.GET("/categories", h.MpCategories)
 		mp.GET("/tags", h.MpTags)
 		mp.GET("/topics", h.MpTopics)

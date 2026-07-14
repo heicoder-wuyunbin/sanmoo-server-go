@@ -234,18 +234,32 @@ func (s *Service) SaveMeiliSearchSyncTime(ctx context.Context, syncTime string) 
 
 // GetHotSearchMode 返回热门搜索模式："FAKE" 伪热门，"REAL" 真热门
 func (s *Service) GetPrivacyPolicy(ctx context.Context) (string, error) {
-	st, err := s.repo.Get(ctx)
+	cfg, err := s.repo.GetPrivacyConfig(ctx)
 	if err != nil {
 		return "", err
 	}
-	if st.CoreConfig == nil {
-		return "", nil
-	}
-	policy, ok := st.CoreConfig["privacyPolicy"].(string)
+	policy, ok := cfg["privacyPolicy"].(string)
 	if !ok || policy == "" {
 		return "", nil
 	}
 	return policy, nil
+}
+
+// GetPublicCompliance returns only the reader-facing compliance fields. It is
+// intentionally separate from admin settings so no operational configuration
+// can be exposed by the public portal or mini-program.
+func (s *Service) GetPublicCompliance(ctx context.Context) (map[string]any, error) {
+	cfg, err := s.repo.GetPrivacyConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any{
+		"privacyPolicy":        cfg["privacyPolicy"],
+		"filingInfo":           cfg["filingInfo"],
+		"contactInfo":          cfg["contactInfo"],
+		"dataRetentionPolicy":  cfg["dataRetentionPolicy"],
+		"accountDeletionGuide": cfg["accountDeletionGuide"],
+	}, nil
 }
 
 func (s *Service) GetHotSearchMode(ctx context.Context) (string, error) {
