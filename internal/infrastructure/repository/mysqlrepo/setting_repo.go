@@ -107,7 +107,7 @@ func (r *Repository) Get(ctx context.Context) (*domsetting.BlogSettings, error) 
 
 	// 从 infra 中提取存储字段
 	storage := map[string]any{}
-	storageFields := []string{"uploadStrategy", "uploadLocalDir", "uploadLocalUrlPrefix", "uploadQiniuBucket", "uploadQiniuDomain", "uploadAliyunEndpoint", "uploadAliyunBucket", "uploadAliyunDomain"}
+	storageFields := []string{"uploadStrategy", "uploadLocalDir", "uploadLocalUrlPrefix", "uploadQiniuBucket", "uploadQiniuDomain", "uploadQiniuAccessKey", "uploadQiniuSecretKey", "uploadAliyunEndpoint", "uploadAliyunBucket", "uploadAliyunDomain", "uploadAliyunAccessKey", "uploadAliyunSecretKey"}
 	for _, field := range storageFields {
 		if v, ok := infra[field]; ok {
 			storage[field] = v
@@ -220,7 +220,7 @@ ON DUPLICATE KEY UPDATE privacy_policy = VALUES(privacy_policy), updated_by = VA
 		if len(s.StorageConfig) > 0 {
 			storage := convertKeysCamelToSnake(s.StorageConfig)
 			storage["updated_by"] = operator
-			validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "updated_by"}
+			validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_qiniu_access_key", "upload_qiniu_secret_key", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "upload_aliyun_access_key", "upload_aliyun_secret_key", "updated_by"}
 			filteredStorage := filterValidFields(storage, validStorageFields)
 			if len(filteredStorage) > 0 {
 				if err := tx.Table("t_blog_infrastructure_config").Where("id=1").Updates(filteredStorage).Error; err != nil {
@@ -446,7 +446,7 @@ func (r *Repository) UpdateStorageConfig(ctx context.Context, cfg domsetting.Sto
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		storage := convertKeysCamelToSnake(map[string]any(cfg))
 		storage["updated_by"] = operator
-		validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "updated_by"}
+		validStorageFields := []string{"upload_strategy", "upload_local_dir", "upload_local_url_prefix", "upload_qiniu_bucket", "upload_qiniu_domain", "upload_qiniu_access_key", "upload_qiniu_secret_key", "upload_aliyun_endpoint", "upload_aliyun_bucket", "upload_aliyun_domain", "upload_aliyun_access_key", "upload_aliyun_secret_key", "updated_by"}
 		filteredStorage := filterValidFields(storage, validStorageFields)
 		if len(filteredStorage) > 0 {
 			if err := tx.Table("t_blog_infrastructure_config").Where("id=1").Updates(filteredStorage).Error; err != nil {

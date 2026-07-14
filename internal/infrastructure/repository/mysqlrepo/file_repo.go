@@ -84,7 +84,58 @@ func (r *Repository) List(ctx context.Context, q domfile.ListQuery) ([]domfile.F
 }
 
 func (r *Repository) listQiniuFiles(ctx context.Context, q domfile.ListQuery) ([]domfile.FileItem, int64, error) {
-	return []domfile.FileItem{}, 0, nil
+	accessKey, secretKey, bucket, _ := r.getQiniuConfig()
+	if accessKey == "" || secretKey == "" || bucket == "" {
+		return []domfile.FileItem{}, 0, nil
+	}
+
+	mac := qbox.NewMac(accessKey, secretKey)
+	cfg := storage.Config{}
+	cfg.Zone = &storage.ZoneHuanan
+	bucketManager := storage.NewBucketManager(mac, &cfg)
+
+	// List files with prefix filter
+	prefix := ""
+	limit := 1000
+	delimiter := ""
+
+	entries, _, _, _, err := bucketManager.ListFiles(bucket, prefix, delimiter, "", limit)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	items := make([]domfile.FileItem, 0)
+	for _, entry := range entries {
+		// Filter by keyword if provided
+		if q.Keyword != "" && !strings.Contains(strings.ToLower(entry.Key), strings.ToLower(q.Keyword)) {
+			continue
+		}
+
+		items = append(items, domfile.FileItem{
+			ID:         fileID(entry.Key),
+			Name:       entry.Key,
+			Size:       entry.Fsize,
+			URL:        r.getQiniuFileURL(entry.Key),
+			CreateTime: time.Unix(0, entry.PutTime*100).Format("2006-01-02 15:04:05"),
+		})
+	}
+
+	// Sort by creation time descending
+	sort.Slice(items, func(i, j int) bool { return items[i].CreateTime > items[j].CreateTime })
+
+	total := int64(len(items))
+
+	// Apply pagination
+	start := (q.Page - 1) * q.Size
+	if start >= len(items) {
+		return []domfile.FileItem{}, total, nil
+	}
+	end := start + q.Size
+	if end > len(items) {
+		end = len(items)
+	}
+
+	return items[start:end], total, nil
 }
 
 func (r *Repository) Upload(ctx context.Context, fileHeader *multipart.FileHeader) (domfile.FileItem, error) {
@@ -320,49 +371,41 @@ func (r *Repository) deleteFromQiniu(ctx context.Context, id string) error {
 		return apperr.New(apperr.ErrInternal.Code, "七牛云存储配置未完成")
 	}
 
+	mac := qbox.NewMac(accessKey, secretKey)
+	cfg := storage.Config{}
+	cfg.Zone = &storage.ZoneHuanan
+	bucketManager := storage.NewBucketManager(mac, &cfg)
+
+	// List all files to find the one matching the ID
+	entries, _, _, _, err := bucketManager.ListFiles(bucket, "", "", "", 1000)
+	if err != nil {
+		return err
+	}
+
+	var targetKey string
+	for _, entry := range entries {
+		if fileID(entry.Key) == id {
+			targetKey = entry.Key
+			break
+		}
+	}
+	if targetKey == "" {
+		return apperr.ErrNotFound
+	}
+
+	if err := bucketManager.Delete(bucket, targetKey); err != nil {
+		return err
+	}
+
+	// Also try to remove local copy if it exists
 	dir := r.getUploadLocalDir()
 	if dir == "" {
 		dir = "uploads"
 	}
+	fullPath := filepath.Join(dir, targetKey)
+	_ = os.Remove(fullPath)
 
-	var relativePath string
-	var fullPath string
-	err := filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if d.IsDir() {
-			return nil
-		}
-		rp, err := filepath.Rel(dir, path)
-		if err != nil {
-			return nil
-		}
-		if fileID(rp) == id {
-			relativePath = rp
-			fullPath = path
-			return filepath.SkipDir
-		}
-		return nil
-	})
-	if err != nil {
-		return err
-	}
-	if relativePath == "" {
-		return apperr.ErrNotFound
-	}
-
-	mac := qbox.NewMac(accessKey, secretKey)
-	cfg := storage.Config{}
-	cfg.Zone = &storage.ZoneHuanan
-	cfg.UseHTTPS = false
-	bucketManager := storage.NewBucketManager(mac, &cfg)
-
-	if err := bucketManager.Delete(bucket, relativePath); err != nil {
-		return err
-	}
-
-	return os.Remove(fullPath)
+	return nil
 }
 
 func (r *Repository) deleteFromAliyun(ctx context.Context, id string) error {
