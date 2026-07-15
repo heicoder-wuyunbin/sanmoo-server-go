@@ -53,15 +53,17 @@ func (w *accessLogWriter) WriteString(s string) (int, error) {
 
 // AccessLogMiddleware records each HTTP request into t_access_log and writes
 // failed responses or panics into t_error_log.
+// Admin routes are also recorded for error tracking.
 func AccessLogMiddleware(db *gorm.DB) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 跳过健康检查和管理后台请求，只记录用户访问
+		// 跳过健康检查请求
 		if c.Request.URL.Path == "/health" ||
-			c.Request.URL.EscapedPath() == "/actuator/health" ||
-			strings.HasPrefix(c.Request.URL.Path, "/admin") {
+			c.Request.URL.EscapedPath() == "/actuator/health" {
 			c.Next()
 			return
 		}
+
+		isAdmin := strings.HasPrefix(c.Request.URL.Path, "/admin")
 
 		start := time.Now()
 		traceID := newTraceID()
@@ -121,6 +123,35 @@ func AccessLogMiddleware(db *gorm.DB) gin.HandlerFunc {
 			requestURL := truncateLog(sanitizeText(c.Request.URL.RequestURI()), 500)
 			requestQuery := sanitizeText(c.Request.URL.RawQuery)
 			requestParams := buildRequestParams(requestQuery, requestBody)
+
+			// admin 路由只记录错误日志，不记录完整的访问日志（避免访问日志表膨胀）
+			if isAdmin {
+				if !isError {
+					return
+				}
+				// 直接写入错误日志，不关联 access_log（admin 请求不写入 access_log）
+				errorLog := mysqlrepo.TErrorLog{
+					TraceID:       traceID,
+					ErrorCode:     errorCode,
+					ErrorMessage:  truncateLog(errorMessage, 1000),
+					ErrorDetail:   errorDetail,
+					StackTrace:    stackTrace,
+					RequestURL:    requestURL,
+					RequestMethod: truncateLog(c.Request.Method, 12),
+					RequestParams: requestParams,
+					RequestBody:   requestBody,
+					ResponseBody:  responseBody,
+					IPAddress:     parseIPBytes(ipAddress),
+					UserAgent:     userAgent,
+					CreateTime:    time.Now(),
+				}
+				go func() {
+					if err := db.Create(&errorLog).Error; err != nil {
+						logger.Warnf("保存 admin 错误日志失败: %v", err)
+					}
+				}()
+				return
+			}
 
 			accessLog := mysqlrepo.TAccessLog{
 				TraceID:        traceID,

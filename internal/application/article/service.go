@@ -26,6 +26,15 @@ func NewService(repo domarticle.Repository, cache *cache.BusinessCache, recRegis
 }
 
 func (s *Service) ListArticles(ctx context.Context, page, size int, keyword string, categoryID, tagID uint64, isPublished *int) (*pagination.PageData, error) {
+	return s.listArticles(ctx, page, size, keyword, categoryID, tagID, isPublished, false)
+}
+
+// ListArticlesNoCache 与 ListArticles 相同，但跳过 Redis 缓存直接查询数据库（用于管理后台等需要实时数据的场景）。
+func (s *Service) ListArticlesNoCache(ctx context.Context, page, size int, keyword string, categoryID, tagID uint64, isPublished *int) (*pagination.PageData, error) {
+	return s.listArticles(ctx, page, size, keyword, categoryID, tagID, isPublished, true)
+}
+
+func (s *Service) listArticles(ctx context.Context, page, size int, keyword string, categoryID, tagID uint64, isPublished *int, skipCache bool) (*pagination.PageData, error) {
 	var pub *bool
 	var pubStr string
 	if isPublished != nil {
@@ -36,7 +45,7 @@ func (s *Service) ListArticles(ctx context.Context, page, size int, keyword stri
 		pubStr = "nil"
 	}
 
-	if s.cache != nil && keyword == "" {
+	if s.cache != nil && keyword == "" && !skipCache {
 		cacheKey := cache.BuildArticleListKey(page, size, keyword, categoryID, tagID, pubStr)
 		var result pagination.PageData
 		err := s.cache.GetOrSet(ctx, cacheKey, &result, func() (interface{}, error) {

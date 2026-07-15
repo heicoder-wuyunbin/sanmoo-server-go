@@ -42,7 +42,7 @@ func toArticle(req dto.AdminArticleCreateRequest) domarticle.Article {
 func (h *Handler) GetArticles(c *gin.Context) {
 	var q dto.ArticleListQuery
 	_ = c.ShouldBindQuery(&q)
-	out, err := h.svc.Article.ListArticles(c.Request.Context(), q.Page, q.Size, q.Keyword, q.CategoryID, q.TagID, q.IsPublished)
+	out, err := h.svc.Article.ListArticlesNoCache(c.Request.Context(), q.Page, q.Size, q.Keyword, q.CategoryID, q.TagID, q.IsPublished)
 	if err != nil {
 		response.Fail(c, err)
 		return
@@ -164,7 +164,7 @@ func (h *Handler) ExportArticles(c *gin.Context) {
 	var q dto.ArticleListQuery
 	_ = c.ShouldBindQuery(&q)
 	// 导出时不分页，取大量数据
-	out, err := h.svc.Article.ListArticles(c.Request.Context(), 1, 10000, q.Keyword, q.CategoryID, q.TagID, q.IsPublished)
+	out, err := h.svc.Article.ListArticlesNoCache(c.Request.Context(), 1, 10000, q.Keyword, q.CategoryID, q.TagID, q.IsPublished)
 	if err != nil {
 		response.Fail(c, err)
 		return
