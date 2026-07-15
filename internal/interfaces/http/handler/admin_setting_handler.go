@@ -403,3 +403,30 @@ func (h *Handler) AdminUpdateEmailConfig(c *gin.Context) {
 	}
 	response.Ok(c, dto.EmptyResponse{})
 }
+
+func (h *Handler) AdminGetWechatConfig(c *gin.Context) {
+	out, err := h.svc.Setting.GetWechatConfig(c.Request.Context())
+	if err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, out)
+}
+
+func (h *Handler) AdminUpdateWechatConfig(c *gin.Context) {
+	body := map[string]any{}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	op, _ := c.Get(middleware.CtxUsernameKey)
+	operator, _ := op.(string)
+	if operator == "" {
+		operator = "system"
+	}
+	if err := h.svc.Setting.UpdateWechatConfig(c.Request.Context(), body, operator); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, dto.EmptyResponse{})
+}

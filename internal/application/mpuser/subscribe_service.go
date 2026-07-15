@@ -7,14 +7,14 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sanmoo-server-go/internal/infrastructure/config"
 	"sanmoo-server-go/internal/infrastructure/logger"
 	"time"
 )
 
 type SubscribeService struct {
-	appID     string
-	appSecret string
-	tokenCache *TokenCache
+	wechatProvider *config.WechatConfigProvider
+	tokenCache     *TokenCache
 }
 
 type TokenCache struct {
@@ -23,10 +23,9 @@ type TokenCache struct {
 	mu          chan struct{}
 }
 
-func NewSubscribeService(appID, appSecret string) *SubscribeService {
+func NewSubscribeService(wechatProvider *config.WechatConfigProvider) *SubscribeService {
 	return &SubscribeService{
-		appID:     appID,
-		appSecret: appSecret,
+		wechatProvider: wechatProvider,
 		tokenCache: &TokenCache{
 			mu: make(chan struct{}, 1),
 		},
@@ -48,7 +47,21 @@ func (s *SubscribeService) getAccessToken(ctx context.Context) (string, error) {
 		return s.tokenCache.accessToken, nil
 	}
 
-	url := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s", s.appID, s.appSecret)
+	// 从动态配置提供者获取微信配置
+	appID := ""
+	appSecret := ""
+	if s.wechatProvider != nil {
+		wechatCfg, err := s.wechatProvider.Get(ctx)
+		if err == nil && wechatCfg != nil {
+			appID = wechatCfg.AppID
+			appSecret = wechatCfg.Secret
+		}
+	}
+	if appID == "" || appSecret == "" {
+		return "", fmt.Errorf("微信小程序 AppID/Secret 未配置")
+	}
+
+	url := fmt.Sprintf("https://api.weixin.qq.com/cgi-bin/token?grant_type=client_credential&appid=%s&secret=%s", appID, appSecret)
 	resp, err := http.Get(url)
 	if err != nil {
 		return "", fmt.Errorf("request access token failed: %w", err)

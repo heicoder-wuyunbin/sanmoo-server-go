@@ -480,6 +480,26 @@ func (s *Service) UpdateEmailConfig(ctx context.Context, body map[string]any, op
 	}
 	if s.bizCache != nil {
 		_ = s.bizCache.DeletePattern(ctx, "blog:setting:*")
+		// 微信配置变更时清除微信配置缓存
+		_ = s.bizCache.Delete(ctx, "blog:wechat:config")
+	}
+	return nil
+}
+
+func (s *Service) GetWechatConfig(ctx context.Context) (map[string]any, error) {
+	cfg, err := s.repo.GetWechatConfig(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return map[string]any(cfg), nil
+}
+
+func (s *Service) UpdateWechatConfig(ctx context.Context, body map[string]any, operator string) error {
+	if err := s.repo.UpdateWechatConfig(ctx, domsetting.WechatConfig(body), operator); err != nil {
+		return err
+	}
+	if s.bizCache != nil {
+		_ = s.bizCache.Delete(ctx, "blog:wechat:config")
 	}
 	return nil
 }

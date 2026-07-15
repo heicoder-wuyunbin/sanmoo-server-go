@@ -13,3 +13,4 @@ type SearchConfig map[string]any
 type PrivacyConfig map[string]any
 type StorageConfig map[string]any
 type EmailConfig map[string]any
+type WechatConfig map[string]any

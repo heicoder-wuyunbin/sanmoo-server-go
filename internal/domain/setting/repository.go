@@ -24,5 +24,8 @@ type Repository interface {
 	GetEmailConfig(ctx context.Context) (EmailConfig, error)
 	UpdateEmailConfig(ctx context.Context, cfg EmailConfig, operator string) error
 
+	GetWechatConfig(ctx context.Context) (WechatConfig, error)
+	UpdateWechatConfig(ctx context.Context, cfg WechatConfig, operator string) error
+
 	SaveMeiliSearchSyncTime(ctx context.Context, syncTime string) error
 }

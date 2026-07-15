@@ -9,6 +9,7 @@ import (
 	"net/http"
 	domuser "sanmoo-server-go/internal/domain/user"
 	"sanmoo-server-go/internal/infrastructure/cache"
+	"sanmoo-server-go/internal/infrastructure/config"
 	"sanmoo-server-go/internal/infrastructure/email"
 	"sanmoo-server-go/internal/infrastructure/security"
 	"sanmoo-server-go/internal/interfaces/http/dto"
@@ -24,8 +25,7 @@ type Service struct {
 	jwt                 *security.JWTManager
 	verificationService *cache.VerificationService
 	emailService        *email.EmailService
-	wxAppID             string
-	wxSecret            string
+	wechatProvider      *config.WechatConfigProvider
 	httpClient          *http.Client
 }
 
@@ -34,16 +34,14 @@ func NewService(
 	jwt *security.JWTManager,
 	vs *cache.VerificationService,
 	emailService *email.EmailService,
-	wxAppID string,
-	wxSecret string,
+	wechatProvider *config.WechatConfigProvider,
 ) *Service {
 	return &Service{
 		userRepo:            userRepo,
 		jwt:                 jwt,
 		verificationService: vs,
 		emailService:        emailService,
-		wxAppID:             wxAppID,
-		wxSecret:            wxSecret,
+		wechatProvider:      wechatProvider,
 		httpClient:          &http.Client{Timeout: 8 * time.Second},
 	}
 }
@@ -195,12 +193,24 @@ func (s *Service) MPAuthSession(ctx context.Context, code string) (*dto.MPAuthSe
 		ErrCode    int    `json:"errcode"`
 		ErrMsg     string `json:"errmsg"`
 	}
-	if s.wxAppID == "" || s.wxSecret == "" {
+
+	// 从动态配置提供者获取微信配置
+	wxAppID := ""
+	wxSecret := ""
+	if s.wechatProvider != nil {
+		wechatCfg, err := s.wechatProvider.Get(ctx)
+		if err == nil && wechatCfg != nil {
+			wxAppID = wechatCfg.AppID
+			wxSecret = wechatCfg.Secret
+		}
+	}
+	if wxAppID == "" || wxSecret == "" {
 		return nil, apperr.New(apperr.ErrInvalidParam.Code, "微信小程序 AppID/Secret 未配置")
 	}
+	fmt.Printf("[DEBUG] jscode2session appid=%s secret=%s code=%s\n", wxAppID, wxSecret, code)
 	url := fmt.Sprintf(
 		"https://api.weixin.qq.com/sns/jscode2session?appid=%s&secret=%s&js_code=%s&grant_type=authorization_code",
-		s.wxAppID, s.wxSecret, code,
+		wxAppID, wxSecret, code,
 	)
 	r, err := s.httpClient.Get(url)
 	if err != nil {

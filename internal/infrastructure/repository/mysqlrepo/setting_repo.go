@@ -539,6 +539,48 @@ ON DUPLICATE KEY UPDATE email_config_json = VALUES(email_config_json), updated_b
 	})
 }
 
+func (r *Repository) GetWechatConfig(ctx context.Context) (domsetting.WechatConfig, error) {
+	infraRaw := map[string]any{}
+	if err := r.db.WithContext(ctx).Table("t_blog_infrastructure_config").Where("id=1").Take(&infraRaw).Error; err != nil {
+		return nil, err
+	}
+	infra := convertKeysSnakeToCamel(infraRaw)
+	wechat := map[string]any{}
+	wechatFields := []string{"wxDevAppId", "wxDevAppSecret", "wxProdAppId", "wxProdAppSecret", "wxEnvMode"}
+	for _, field := range wechatFields {
+		if v, ok := infra[field]; ok {
+			wechat[field] = v
+		}
+	}
+	return domsetting.WechatConfig(wechat), nil
+}
+
+func (r *Repository) UpdateWechatConfig(ctx context.Context, cfg domsetting.WechatConfig, operator string) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		wechat := convertKeysCamelToSnake(map[string]any(cfg))
+		wechat["updated_by"] = operator
+		validWechatFields := []string{"wx_dev_app_id", "wx_dev_app_secret", "wx_prod_app_id", "wx_prod_app_secret", "wx_env_mode", "updated_by"}
+		filteredWechat := filterValidFields(wechat, validWechatFields)
+		// 处理 wx_env_mode 布尔值转换
+		if v, ok := filteredWechat["wx_env_mode"]; ok {
+			switch val := v.(type) {
+			case bool:
+				if val {
+					filteredWechat["wx_env_mode"] = 1
+				} else {
+					filteredWechat["wx_env_mode"] = 0
+				}
+			}
+		}
+		if len(filteredWechat) > 0 {
+			if err := tx.Table("t_blog_infrastructure_config").Where("id=1").Updates(filteredWechat).Error; err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
 func (r *Repository) SaveMeiliSearchSyncTime(ctx context.Context, syncTime string) error {
 	return r.db.WithContext(ctx).Table("t_blog_infrastructure_config").Where("id=1").Update("meilisearch_last_sync_time", syncTime).Error
 }

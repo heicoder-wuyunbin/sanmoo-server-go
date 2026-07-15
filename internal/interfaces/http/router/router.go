@@ -121,6 +121,8 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.PUT("/settings/storage", middleware.RequirePerm(roleSvc, "setting:storage:update"), h.AdminUpdateStorageConfig)
 		admin.GET("/settings/email", middleware.RequirePerm(roleSvc, "setting:email:read"), h.AdminGetEmailConfig)
 		admin.PUT("/settings/email", middleware.RequirePerm(roleSvc, "setting:email:update"), h.AdminUpdateEmailConfig)
+		admin.GET("/settings/wechat", middleware.RequirePerm(roleSvc, "setting:wechat:read"), h.AdminGetWechatConfig)
+		admin.PUT("/settings/wechat", middleware.RequirePerm(roleSvc, "setting:wechat:update"), h.AdminUpdateWechatConfig)
 
 		// 文件管理
 		admin.GET("/files", middleware.RequirePerm(roleSvc, "file:list"), h.GetFiles)

@@ -86,8 +86,24 @@ func New(cfg *config.Config) (*App, error) {
 		emailService.UpdateConfig(st.EmailConfig)
 	}
 
+	logger.Infof("初始化微信配置动态提供者...")
+	wechatProvider := config.NewWechatConfigProvider(redisClient, func(ctx context.Context) (*config.WechatMPConfig, error) {
+		wechatCfg, err := repo.GetWechatConfig(ctx)
+		if err != nil {
+			return nil, err
+		}
+		return config.LoadWechatConfigFromDB(ctx, wechatCfg), nil
+	})
+	// 启动时从数据库加载微信配置到缓存，确保重启后配置不丢失
+	if _, err := wechatProvider.Get(context.Background()); err != nil {
+		logger.Warnf("加载微信配置失败（使用默认空配置）: %v", err)
+	} else {
+		logger.Infof("微信配置加载成功")
+	}
+	logger.Infof("微信配置动态提供者初始化成功")
+
 	logger.Infof("初始化应用服务...")
-	authSvc := auth.NewService(repo, jwtMgr, verificationService, emailService, cfg.WechatMP.AppID, cfg.WechatMP.Secret)
+	authSvc := auth.NewService(repo, jwtMgr, verificationService, emailService, wechatProvider)
 	userSvc := user.NewService(repo)
 	tagSvc := tag.NewService(repo, bizCache)
 	categorySvc := category.NewService(repo, bizCache)

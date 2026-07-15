@@ -14,7 +14,6 @@ type Config struct {
 	MySQLDSN   string
 	RedisAddr  string
 	JWT        JWTConfig
-	WechatMP   WechatMPConfig
 }
 
 type JWTConfig struct {
@@ -66,9 +65,6 @@ func LoadFromProperties(path string) (*Config, error) {
 	// 解析JWT配置
 	jwtConfig := parseJWTConfig(configMap)
 
-	// 解析微信小程序配置
-	wechatMPConfig := parseWechatMPConfig(configMap)
-
 	// 构建配置对象
 	cfg := &Config{
 		ServerPort: getConfigValue(configMap, "server.port", "28080"),
@@ -76,7 +72,6 @@ func LoadFromProperties(path string) (*Config, error) {
 		MySQLDSN:   mysqlConfig,
 		RedisAddr:  redisAddr,
 		JWT:        jwtConfig,
-		WechatMP:   wechatMPConfig,
 	}
 
 	return cfg, nil
@@ -117,17 +112,6 @@ func parseJWTConfig(configMap map[string]string) JWTConfig {
 		AccessTTLSeconds:  accessTTL,
 		RefreshSecret:     refreshSecret,
 		RefreshTTLSeconds: refreshTTL,
-	}
-}
-
-// parseWechatMPConfig 解析微信小程序配置
-func parseWechatMPConfig(configMap map[string]string) WechatMPConfig {
-	appID := getEnvOrConfig(configMap, "WX_APPID", "wx.appid", "wx084d5d60b374c2a4")
-	secret := getEnvOrConfig(configMap, "WX_SECRET", "wx.secret", "f5207f4068251d589cc12923acd2d759")
-
-	return WechatMPConfig{
-		AppID:  appID,
-		Secret: secret,
 	}
 }
 
