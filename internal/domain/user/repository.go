@@ -17,7 +17,6 @@ type Repository interface {
 	UpsertMPUser(ctx context.Context, openID string) error
 	GetMPUserNicknameAvatar(ctx context.Context, openID string) (nickname string, avatar string, err error)
 	UpdateMPUserProfile(ctx context.Context, openID, nickname, avatar string) error
-	RecordMPBehavior(ctx context.Context, openID string, articleID uint64, eventType string, staySeconds int, scene, strategy string) error
 
 	AddMPFavorite(ctx context.Context, openID string, articleID uint64) error
 	RemoveMPFavorite(ctx context.Context, openID string, articleID uint64) error

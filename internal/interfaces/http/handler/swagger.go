@@ -102,7 +102,6 @@ var routes = []RouteInfo{
 	{"POST", "/mp/auth/session", "小程序登录", "小程序登录接口"},
 	{"GET", "/mp/user/profile", "获取小程序用户资料", "根据 openid 获取小程序用户头像昵称（首次需客户端授权后写入）"},
 	{"POST", "/mp/user/profile", "更新小程序用户资料", "保存小程序用户头像昵称（按 openid 覆盖）"},
-	{"POST", "/mp/behavior", "上报行为", "上报用户行为"},
 	{"GET", "/mp/settings", "获取小程序设置", "获取小程序系统设置"},
 	{"GET", "/mp/categories", "获取小程序分类", "获取小程序分类列表"},
 	{"GET", "/mp/tags", "获取小程序标签", "获取小程序标签列表"},

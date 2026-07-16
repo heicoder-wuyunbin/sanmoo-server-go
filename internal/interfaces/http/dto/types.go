@@ -126,9 +126,60 @@ type AdminArticleCreateRequest struct {
 	IsPublished int      `json:"isPublished"`
 }
 
-type AdminArticleUpdateRequest = AdminArticleCreateRequest
+type AdminArticleUpdateRequest struct {
+	Title       *string  `json:"title"`
+	TitleImage  *string  `json:"titleImage"`
+	Description *string  `json:"description"`
+	Content     *string  `json:"content"`
+	CategoryID  *uint64  `json:"categoryId"`
+	TagIDs      []uint64 `json:"tagIds"`
+	TopicIDs    []uint64 `json:"topicIds"`
+	IsTop       *int     `json:"isTop"`
+	IsPublished *int     `json:"isPublished"`
+}
 
 type BatchDeleteRequest struct {
+	IDs []uint64 `json:"ids"`
+}
+
+// BatchImportArticleItem 批量导入单篇文章
+type BatchImportArticleItem struct {
+	Title       string   `json:"title"`
+	Description string   `json:"description"`
+	Content     string   `json:"content"`
+	CategoryID  uint64   `json:"categoryId"`
+	TagIDs      []uint64 `json:"tagIds"`
+	TopicIDs    []uint64 `json:"topicIds"`
+	IsTop       int      `json:"isTop"`
+	IsPublished int      `json:"isPublished"`
+}
+
+// BatchImportArticlesRequest 批量导入请求
+type BatchImportArticlesRequest struct {
+	Articles []BatchImportArticleItem `json:"articles" binding:"required"`
+}
+
+// BatchImportResult 批量导入单条结果
+type BatchImportResult struct {
+	Index   int    `json:"index"`
+	Title   string `json:"title"`
+	Success bool   `json:"success"`
+	Status  string `json:"status"`           // success / failed / skipped
+	Error   string `json:"error,omitempty"`
+	ID      uint64 `json:"id,omitempty"`
+}
+
+// BatchImportResponse 批量导入响应
+type BatchImportResponse struct {
+	Total    int                 `json:"total"`
+	Success  int                 `json:"success"`
+	Failed   int                 `json:"failed"`
+	Skipped  int                 `json:"skipped"`
+	Results  []BatchImportResult `json:"results"`
+}
+
+// BatchExportRequest 批量导出请求
+type BatchExportRequest struct {
 	IDs []uint64 `json:"ids"`
 }
 
@@ -168,15 +219,6 @@ type PageQuery struct {
 type MPAuthSessionRequest struct {
 	Code   string `json:"code"`
 	OpenID string `json:"openid"`
-}
-
-type MPBehaviorRequest struct {
-	OpenID      string `json:"openid"`
-	ArticleID   uint64 `json:"articleId"`
-	EventType   string `json:"eventType"`
-	StaySeconds int    `json:"staySeconds"`
-	Scene       string `json:"scene"`
-	Strategy    string `json:"strategy"`
 }
 
 type MPUserProfileUpdateRequest struct {

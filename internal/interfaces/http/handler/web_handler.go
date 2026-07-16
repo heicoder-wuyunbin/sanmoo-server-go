@@ -191,19 +191,7 @@ func (h *Handler) WebHotSearches(c *gin.Context) {
 		if engine, ok := st.UIConfig["searchEngine"].(string); ok {
 			if engine == "MEILISEARCH" {
 				if host, ok := st.UIConfig["meilisearchHost"].(string); ok && host != "" {
-					apiKey := ""
-					if key, ok := st.UIConfig["meilisearchApiKey"].(string); ok {
-						apiKey = key
-					}
-					index := "articles"
-					if idx, ok := st.UIConfig["meilisearchIndex"].(string); ok {
-						index = idx
-					}
-					searchClient := search.NewMeiliSearchClient(host, apiKey, index)
-					_, err := searchClient.GetIndexStats(ctx)
-					if err == nil {
-						meiliSearchAvailable = true
-					}
+					meiliSearchAvailable = true
 				}
 			}
 		}

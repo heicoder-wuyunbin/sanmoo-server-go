@@ -354,7 +354,12 @@ func (s *Service) computeHotSearches(ctx context.Context, limit int) ([]string, 
 }
 
 func (s *Service) RecordSearchHistory(ctx context.Context, keyword string) error {
-	return s.repo.RecordSearchHistory(ctx, keyword)
+	if err := s.repo.RecordSearchHistory(ctx, keyword); err != nil {
+		return err
+	}
+	// 清除热搜缓存，使下次请求重新计算
+	_ = s.cache.Delete(ctx, cache.KeyHotSearches)
+	return nil
 }
 
 func (s *Service) ListAllPublishedArticlesForSitemap(ctx context.Context) ([]domarticle.Article, error) {
@@ -409,4 +414,23 @@ func (s *Service) invalidateArticleDetailCache(ctx context.Context, id uint64) {
 	prevKey := fmt.Sprintf(cache.KeyArticlePrev, id)
 	nextKey := fmt.Sprintf(cache.KeyArticleNext, id)
 	_ = s.cache.Delete(ctx, detailKey, prevKey, nextKey)
+}
+
+// RefreshArticleSlug 刷新单篇文章的 slug
+func (s *Service) RefreshArticleSlug(ctx context.Context, articleID uint64) error {
+	err := s.repo.RefreshArticleSlug(ctx, articleID)
+	if err == nil {
+		s.invalidateArticleCache(ctx)
+		go s.invalidateArticleDetailCache(ctx, articleID)
+	}
+	return err
+}
+
+// BatchRefreshArticleSlugs 批量刷新所有文章的 slug
+func (s *Service) BatchRefreshArticleSlugs(ctx context.Context) (int64, error) {
+	count, err := s.repo.BatchRefreshArticleSlugs(ctx)
+	if err == nil {
+		s.invalidateArticleCache(ctx)
+	}
+	return count, err
 }

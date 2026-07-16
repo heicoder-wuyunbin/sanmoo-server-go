@@ -9,6 +9,7 @@ import (
 	"github.com/yuin/goldmark"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
+	exast "github.com/yuin/goldmark/extension/ast"
 	"github.com/yuin/goldmark/text"
 	"github.com/yuin/goldmark/util"
 )
@@ -192,6 +193,14 @@ func renderNodeWithTOC(w *bytes.Buffer, source []byte, node ast.Node, toc *[]TOC
 		return renderCodeSpan(w, source, n)
 	case *ast.AutoLink:
 		return renderAutoLink(w, source, n)
+	case *exast.Table:
+		return renderTable(w, source, n)
+	case *exast.TableHeader:
+		return renderTableSection(w, source, n, "thead")
+	case *exast.TableRow:
+		return renderTableRow(w, source, n)
+	case *exast.TableCell:
+		return renderTableCell(w, source, n, false)
 	case *ast.RawHTML:
 		return renderRawHTML(w, source, n)
 	default:
@@ -282,6 +291,14 @@ func renderNode(w *bytes.Buffer, source []byte, node ast.Node) error {
 		return renderCodeSpan(w, source, n)
 	case *ast.AutoLink:
 		return renderAutoLink(w, source, n)
+	case *exast.Table:
+		return renderTable(w, source, n)
+	case *exast.TableHeader:
+		return renderTableSection(w, source, n, "thead")
+	case *exast.TableRow:
+		return renderTableRow(w, source, n)
+	case *exast.TableCell:
+		return renderTableCell(w, source, n, false)
 	case *ast.RawHTML:
 		return renderRawHTML(w, source, n)
 	default:
@@ -491,6 +508,55 @@ func renderCodeSpan(w *bytes.Buffer, source []byte, n *ast.CodeSpan) error {
 		}
 	}
 	close(w, "code")
+	return nil
+}
+
+// ---------- 表格渲染 ----------
+
+func renderTable(w *bytes.Buffer, source []byte, n *exast.Table) error {
+	open(w, "table", "md-table")
+	if err := renderChildren(w, source, n); err != nil {
+		return err
+	}
+	close(w, "table")
+	return nil
+}
+
+func renderTableSection(w *bytes.Buffer, source []byte, n ast.Node, tag string) error {
+	open(w, tag, "")
+	if err := renderChildren(w, source, n); err != nil {
+		return err
+	}
+	close(w, tag)
+	return nil
+}
+
+func renderTableRow(w *bytes.Buffer, source []byte, n *exast.TableRow) error {
+	open(w, "tr", "md-tr")
+	if err := renderChildren(w, source, n); err != nil {
+		return err
+	}
+	close(w, "tr")
+	return nil
+}
+
+func renderTableCell(w *bytes.Buffer, source []byte, n *exast.TableCell, _ bool) error {
+	tag := "td"
+	class := "md-td"
+	// Cell → Row → TableHeader，检查祖父节点是否为 TableHeader
+	if row := n.Parent(); row != nil {
+		if section := row.Parent(); section != nil {
+			if _, ok := section.(*exast.TableHeader); ok {
+				tag = "th"
+				class = "md-th"
+			}
+		}
+	}
+	open(w, tag, class)
+	if err := renderChildren(w, source, n); err != nil {
+		return err
+	}
+	close(w, tag)
 	return nil
 }
 

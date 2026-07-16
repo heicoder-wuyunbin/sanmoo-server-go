@@ -48,4 +48,6 @@ type Repository interface {
 	GetHotSearchKeywords(ctx context.Context, limit int) ([]string, error)
 	GetHotTagsFromArticles(ctx context.Context, limit int) ([]string, error)
 	RandomArticle(ctx context.Context, excludeID uint64) (*Article, error)
+	RefreshArticleSlug(ctx context.Context, articleID uint64) error
+	BatchRefreshArticleSlugs(ctx context.Context) (int64, error)
 }

@@ -59,15 +59,6 @@ func (s *Service) MPUpdateUserProfile(ctx context.Context, openID, nickName, ava
 	return s.userRepo.UpdateMPUserProfile(ctx, openID, nickName, avatarUrl)
 }
 
-// ReportMPBehavior 上报小程序用户行为。
-func (s *Service) ReportMPBehavior(ctx context.Context, openID string, articleID uint64, eventType string, staySeconds int, scene, strategy string) error {
-	typ := eventType
-	if typ == "" {
-		typ = "view"
-	}
-	return s.userRepo.RecordMPBehavior(ctx, openID, articleID, typ, staySeconds, scene, strategy)
-}
-
 // MPAddFavorite 添加收藏。
 func (s *Service) MPAddFavorite(ctx context.Context, openID string, articleID uint64) error {
 	return s.userRepo.AddMPFavorite(ctx, openID, articleID)

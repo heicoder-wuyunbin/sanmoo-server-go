@@ -103,19 +103,6 @@ func (h *Handler) MpUpdateUserProfile(c *gin.Context) {
 	response.Ok(c, dto.EmptyResponse{})
 }
 
-func (h *Handler) MpReportBehavior(c *gin.Context) {
-	var req dto.MPBehaviorRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.Fail(c, apperr.ErrInvalidParam)
-		return
-	}
-	if err := h.svc.MPUser.ReportMPBehavior(c.Request.Context(), req.OpenID, req.ArticleID, req.EventType, req.StaySeconds, req.Scene, req.Strategy); err != nil {
-		response.Fail(c, err)
-		return
-	}
-	response.Ok(c, dto.EmptyResponse{})
-}
-
 func (h *Handler) MpAddFavorite(c *gin.Context) {
 	articleID, err := strconv.ParseUint(c.Param("articleId"), 10, 64)
 	if err != nil {

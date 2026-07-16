@@ -89,6 +89,10 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.PUT("/articles/batch-status", h.BatchUpdateArticleStatus)
 		admin.DELETE("/articles/:id", h.DeleteArticle)
 		admin.DELETE("/articles/batch-delete", h.BatchDeleteArticles)
+		admin.POST("/articles/batch-refresh-slug", h.BatchRefreshArticleSlugs)
+		admin.POST("/articles/import", h.ImportArticles)
+		admin.POST("/articles/export", h.ExportArticlesSelected)
+		admin.POST("/articles/:id/refresh-slug", h.RefreshArticleSlug)
 
 		// 设置
 		admin.GET("/settings", h.AdminGetSettings)
@@ -205,6 +209,10 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		mp.GET("/archives", h.MpArchives)
 		mp.GET("/search/hot", h.WebHotSearches)
 		mp.GET("/privacy-policy", h.MpPrivacyPolicy)
+		mp.GET("/user/profile", h.MpUserProfile)
+		mp.POST("/user/profile", h.MpUserProfile)
 		mp.DELETE("/user", h.MpDeleteUser)
+		mp.GET("/subscribe/status", h.MpSubscribeStatus)
+		mp.POST("/subscribe", h.MpSubscribe)
 	}
 }

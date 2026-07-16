@@ -116,18 +116,6 @@ WHERE openid = ?
 `, strings.TrimSpace(nickname), strings.TrimSpace(avatar), openID).Error
 }
 
-func (r *Repository) RecordMPBehavior(ctx context.Context, openID string, articleID uint64, eventType string, staySeconds int, scene, strategy string) error {
-	return r.db.WithContext(ctx).Create(&tMPUserBehavior{
-		OpenID:      strings.TrimSpace(openID),
-		ArticleID:   articleID,
-		EventType:   strings.ToLower(strings.TrimSpace(eventType)),
-		StaySeconds: staySeconds,
-		Scene:       strings.TrimSpace(scene),
-		Strategy:    strings.TrimSpace(strategy),
-		EventTime:   time.Now(),
-	}).Error
-}
-
 func (r *Repository) AddMPInterest(ctx context.Context, openID, dimensionType string, dimensionID uint64, delta float64) error {
 	return r.db.WithContext(ctx).Exec(`
 INSERT INTO t_mp_user_interest(openid, dimension_type, dimension_id, score)

@@ -3,6 +3,7 @@ package mysqlrepo
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"unicode"
 
@@ -76,7 +77,11 @@ func (r *Repository) Get(ctx context.Context) (*domsetting.BlogSettings, error) 
 		return nil, err
 	}
 	if err := r.db.WithContext(ctx).Table("t_blog_compliance_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
-		return nil, err
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		// t_blog_compliance_config 表可能没有初始数据，此时使用空 map 继续执行
+		privacyRaw = map[string]any{}
 	}
 
 	brand := convertKeysSnakeToCamel(brandRaw)
@@ -392,7 +397,11 @@ func (r *Repository) UpdateSearchConfig(ctx context.Context, cfg domsetting.Sear
 func (r *Repository) GetPrivacyConfig(ctx context.Context) (domsetting.PrivacyConfig, error) {
 	privacyRaw := map[string]any{}
 	if err := r.db.WithContext(ctx).Table("t_blog_compliance_config").Where("id=1").Take(&privacyRaw).Error; err != nil {
-		return nil, err
+		if !errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, err
+		}
+		// t_blog_compliance_config 表可能没有初始数据，返回空配置
+		return domsetting.PrivacyConfig{}, nil
 	}
 	privacy := convertKeysSnakeToCamel(privacyRaw)
 	delete(privacy, "id")
