@@ -98,6 +98,11 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.GET("/settings/export", h.AdminExportSettings)
 		admin.POST("/settings/import", h.AdminImportSettings)
 		admin.POST("/search/sync", h.AdminSyncMeiliSearch)
+
+		// 缓存管理
+		admin.POST("/cache/clear", h.ClearCache)
+		admin.POST("/cache/warmup", h.WarmupCache)
+		admin.GET("/cache/stats", h.CacheStats)
 		admin.GET("/search/stats", h.AdminGetMeiliSearchStats)
 
 		// 独立配置接口

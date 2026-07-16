@@ -8,6 +8,7 @@ import (
 
 	"sanmoo-server-go/internal/application/article"
 	"sanmoo-server-go/internal/application/auth"
+	cacheapp "sanmoo-server-go/internal/application/cache"
 	"sanmoo-server-go/internal/application/category"
 	"sanmoo-server-go/internal/application/dashboard"
 	"sanmoo-server-go/internal/application/file"
@@ -108,6 +109,7 @@ func New(cfg *config.Config) (*App, error) {
 	mpUserSvc := mpuserapp.NewService(repo, repo)
 	linkRepo := mysqlrepo.NewLinkRepo(database)
 	linkSvc := linkapp.NewLinkService(linkRepo)
+	cacheSvc := cacheapp.NewService(bizCache)
 	logger.Infof("应用服务初始化成功")
 
 	logger.Infof("初始化HTTP处理器...")
@@ -121,6 +123,7 @@ func New(cfg *config.Config) (*App, error) {
 		File:      fileSvc,
 		Dashboard: dashboardSvc,
 		MPUser:    mpUserSvc,
+		Cache:     cacheSvc,
 		Link:      linkSvc,
 	})
 	logger.Infof("HTTP处理器初始化成功")

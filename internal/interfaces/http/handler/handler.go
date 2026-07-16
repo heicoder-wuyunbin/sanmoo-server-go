@@ -5,6 +5,7 @@ import (
 
 	"sanmoo-server-go/internal/application/article"
 	"sanmoo-server-go/internal/application/auth"
+	cacheapp "sanmoo-server-go/internal/application/cache"
 	"sanmoo-server-go/internal/application/category"
 	"sanmoo-server-go/internal/application/dashboard"
 	"sanmoo-server-go/internal/application/file"
@@ -45,6 +46,7 @@ type Services struct {
 	File      *file.Service
 	Dashboard *dashboard.Service
 	MPUser    *mpuserapp.Service
+	Cache     *cacheapp.Service
 	Link      *linkapp.LinkService
 }
 
