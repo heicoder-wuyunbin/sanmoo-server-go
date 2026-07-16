@@ -12,6 +12,66 @@ import (
 	"gorm.io/gorm"
 )
 
+// ---- MP table models (moved from models.go) ----
+
+type tMPUserBehavior struct {
+	ID          uint64    `gorm:"column:id;primaryKey"`
+	OpenID      string    `gorm:"column:openid"`
+	ArticleID   uint64    `gorm:"column:article_id"`
+	EventType   string    `gorm:"column:event_type"`
+	StaySeconds int       `gorm:"column:stay_seconds"`
+	Scene       string    `gorm:"column:scene"`
+	Strategy    string    `gorm:"column:strategy"`
+	EventTime   time.Time `gorm:"column:event_time"`
+}
+
+func (tMPUserBehavior) TableName() string { return "t_mp_user_behavior" }
+
+type tMPUserInterest struct {
+	ID            uint64    `gorm:"column:id;primaryKey"`
+	OpenID        string    `gorm:"column:openid"`
+	DimensionType string    `gorm:"column:dimension_type"`
+	DimensionID   uint64    `gorm:"column:dimension_id"`
+	Score         float64   `gorm:"column:score"`
+	UpdateTime    time.Time `gorm:"column:update_time"`
+}
+
+func (tMPUserInterest) TableName() string { return "t_mp_user_interest" }
+
+type tMPUserTag struct {
+	ID          uint64    `gorm:"column:id;primaryKey"`
+	OpenID      string    `gorm:"column:openid"`
+	TagName     string    `gorm:"column:tag_name"`
+	TagCategory string    `gorm:"column:tag_category"`
+	Score       float64   `gorm:"column:score"`
+	Source      string    `gorm:"column:source"`
+	CreateTime  time.Time `gorm:"column:create_time"`
+	UpdateTime  time.Time `gorm:"column:update_time"`
+}
+
+func (tMPUserTag) TableName() string { return "t_mp_user_tag" }
+
+type tMPUserProfile struct {
+	ID         uint64    `gorm:"column:id;primaryKey"`
+	OpenID     string    `gorm:"column:openid"`
+	Dimension  string    `gorm:"column:dimension"`
+	Score      float64   `gorm:"column:score"`
+	CreateTime time.Time `gorm:"column:create_time"`
+	UpdateTime time.Time `gorm:"column:update_time"`
+}
+
+func (tMPUserProfile) TableName() string { return "t_mp_user_profile" }
+
+type TMPUserSubscribe struct {
+	ID         uint64    `gorm:"column:id;primaryKey"`
+	OpenID     string    `gorm:"column:openid;size:128;uniqueIndex"`
+	Subscribe  bool      `gorm:"column:subscribe"`
+	CreateTime time.Time `gorm:"column:create_time;autoCreateTime"`
+	UpdateTime time.Time `gorm:"column:update_time;autoUpdateTime"`
+}
+
+func (TMPUserSubscribe) TableName() string { return "t_mp_user_subscribe" }
+
 func (r *Repository) UpsertMPUser(ctx context.Context, openID string) error {
 	openID = strings.TrimSpace(openID)
 	if openID == "" {

@@ -78,7 +78,7 @@ func (h *Handler) MpAuthSession(c *gin.Context) {
 }
 
 func (h *Handler) MpUserProfile(c *gin.Context) {
-	out, err := h.svc.User.MPGetUserProfile(c.Request.Context(), getOpenID(c))
+	out, err := h.svc.MPUser.MPGetUserProfile(c.Request.Context(), getOpenID(c))
 	if err != nil {
 		response.Fail(c, err)
 		return
@@ -96,7 +96,7 @@ func (h *Handler) MpUpdateUserProfile(c *gin.Context) {
 	if openID == "" {
 		openID = c.GetHeader("X-MP-OPENID")
 	}
-	if err := h.svc.User.MPUpdateUserProfile(c.Request.Context(), openID, req.NickName, req.AvatarUrl); err != nil {
+	if err := h.svc.MPUser.MPUpdateUserProfile(c.Request.Context(), openID, req.NickName, req.AvatarUrl); err != nil {
 		response.Fail(c, err)
 		return
 	}
@@ -109,7 +109,7 @@ func (h *Handler) MpReportBehavior(c *gin.Context) {
 		response.Fail(c, apperr.ErrInvalidParam)
 		return
 	}
-	if err := h.svc.User.ReportMPBehavior(c.Request.Context(), req.OpenID, req.ArticleID, req.EventType, req.StaySeconds, req.Scene, req.Strategy); err != nil {
+	if err := h.svc.MPUser.ReportMPBehavior(c.Request.Context(), req.OpenID, req.ArticleID, req.EventType, req.StaySeconds, req.Scene, req.Strategy); err != nil {
 		response.Fail(c, err)
 		return
 	}
@@ -122,7 +122,7 @@ func (h *Handler) MpAddFavorite(c *gin.Context) {
 		response.Fail(c, apperr.ErrInvalidParam)
 		return
 	}
-	if err := h.svc.User.MPAddFavorite(c.Request.Context(), getOpenID(c), articleID); err != nil {
+	if err := h.svc.MPUser.MPAddFavorite(c.Request.Context(), getOpenID(c), articleID); err != nil {
 		response.Fail(c, err)
 		return
 	}
@@ -135,7 +135,7 @@ func (h *Handler) MpRemoveFavorite(c *gin.Context) {
 		response.Fail(c, apperr.ErrInvalidParam)
 		return
 	}
-	if err := h.svc.User.MPRemoveFavorite(c.Request.Context(), getOpenID(c), articleID); err != nil {
+	if err := h.svc.MPUser.MPRemoveFavorite(c.Request.Context(), getOpenID(c), articleID); err != nil {
 		response.Fail(c, err)
 		return
 	}
@@ -148,7 +148,7 @@ func (h *Handler) MpFavoriteStatus(c *gin.Context) {
 		response.Fail(c, apperr.ErrInvalidParam)
 		return
 	}
-	out, err := h.svc.User.MPFavoriteStatus(c.Request.Context(), getOpenID(c), articleID)
+	out, err := h.svc.MPUser.MPFavoriteStatus(c.Request.Context(), getOpenID(c), articleID)
 	if err != nil {
 		response.Fail(c, err)
 		return
@@ -159,7 +159,7 @@ func (h *Handler) MpFavoriteStatus(c *gin.Context) {
 func (h *Handler) MpFavorites(c *gin.Context) {
 	page := parseIntDefault(c.Query("page"), 1)
 	size := parseIntDefault(c.Query("size"), 20)
-	out, err := h.svc.User.MPFavoriteList(c.Request.Context(), getOpenID(c), page, size)
+	out, err := h.svc.MPUser.MPFavoriteList(c.Request.Context(), getOpenID(c), page, size)
 	if err != nil {
 		response.Fail(c, err)
 		return
@@ -173,7 +173,7 @@ func (h *Handler) MpAddBrowseHistory(c *gin.Context) {
 		response.Fail(c, apperr.ErrInvalidParam)
 		return
 	}
-	err = h.svc.User.AddMPBrowseHistory(c.Request.Context(), getOpenID(c), articleID)
+	err = h.svc.MPUser.AddMPBrowseHistory(c.Request.Context(), getOpenID(c), articleID)
 	if err != nil {
 		response.Fail(c, err)
 		return
@@ -182,7 +182,7 @@ func (h *Handler) MpAddBrowseHistory(c *gin.Context) {
 }
 
 func (h *Handler) MpClearBrowseHistory(c *gin.Context) {
-	err := h.svc.User.ClearMPBrowseHistory(c.Request.Context(), getOpenID(c))
+	err := h.svc.MPUser.ClearMPBrowseHistory(c.Request.Context(), getOpenID(c))
 	if err != nil {
 		response.Fail(c, err)
 		return
@@ -193,7 +193,7 @@ func (h *Handler) MpClearBrowseHistory(c *gin.Context) {
 func (h *Handler) MpBrowseHistory(c *gin.Context) {
 	page := parseIntDefault(c.Query("page"), 1)
 	size := parseIntDefault(c.Query("size"), 20)
-	out, err := h.svc.User.MPBrowseHistoryList(c.Request.Context(), getOpenID(c), page, size)
+	out, err := h.svc.MPUser.MPBrowseHistoryList(c.Request.Context(), getOpenID(c), page, size)
 	if err != nil {
 		response.Fail(c, err)
 		return
@@ -321,7 +321,7 @@ func (h *Handler) MpArticleDetail(c *gin.Context) {
 
 	openID := getOpenID(c)
 	if openID != "" {
-		if status, favErr := h.svc.User.MPFavoriteStatus(c.Request.Context(), openID, id); favErr == nil {
+		if status, favErr := h.svc.MPUser.MPFavoriteStatus(c.Request.Context(), openID, id); favErr == nil {
 			resp.IsFavorited = status.IsFavorited
 		}
 	}
@@ -401,7 +401,7 @@ func (h *Handler) MpDeleteUser(c *gin.Context) {
 		response.Fail(c, apperr.ErrInvalidParam)
 		return
 	}
-	if err := h.svc.User.MPDeleteUser(c.Request.Context(), openID); err != nil {
+	if err := h.svc.MPUser.MPDeleteUser(c.Request.Context(), openID); err != nil {
 		response.Fail(c, err)
 		return
 	}
@@ -421,7 +421,7 @@ func (h *Handler) MpSubscribe(c *gin.Context) {
 		response.Fail(c, apperr.ErrInvalidParam)
 		return
 	}
-	if err := h.svc.User.MPSetSubscribe(c.Request.Context(), openID, req.Subscribe); err != nil {
+	if err := h.svc.MPUser.MPSetSubscribe(c.Request.Context(), openID, req.Subscribe); err != nil {
 		response.Fail(c, err)
 		return
 	}
@@ -434,7 +434,7 @@ func (h *Handler) MpSubscribeStatus(c *gin.Context) {
 		response.Fail(c, apperr.ErrInvalidParam)
 		return
 	}
-	status, err := h.svc.User.MPGetSubscribe(c.Request.Context(), openID)
+	status, err := h.svc.MPUser.MPGetSubscribe(c.Request.Context(), openID)
 	if err != nil {
 		response.Fail(c, err)
 		return

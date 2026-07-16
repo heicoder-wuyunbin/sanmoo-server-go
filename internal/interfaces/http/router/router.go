@@ -1,7 +1,6 @@
 package router
 
 import (
-	rolesvc "sanmoo-server-go/internal/application/role"
 	"sanmoo-server-go/internal/infrastructure/repository/mysqlrepo"
 	"sanmoo-server-go/internal/infrastructure/security"
 	"sanmoo-server-go/internal/interfaces/http/handler"
@@ -11,7 +10,7 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo *mysqlrepo.Repository, roleSvc *rolesvc.Service, redisClient *redis.Client) {
+func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo *mysqlrepo.Repository, redisClient *redis.Client) {
 	// 添加全局日志中间件
 	e.Use(middleware.Logger())
 
@@ -41,167 +40,108 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		user.PUT("/password", h.ChangePassword)
 	}
 
-	// 管理端接口统一要求 JWT 鉴权。添加宽松限流（300次/分钟）
+	// 管理端接口统一要求 JWT 鉴权 + Admin 权限。添加宽松限流（300次/分钟）
 	admin := e.Group("/admin")
 	admin.Use(middleware.JWTAuth(jwt, repo))
+	admin.Use(middleware.RequireAdmin(repo))
 	admin.Use(middleware.RateLimit(redisClient, middleware.AdminRateLimit))
 	{
-		// 用户管理 - FROZEN (L3): 用户管理已冻结，前端应隐藏入口
-		admin.GET("/users", middleware.RequirePerm(roleSvc, "user:list"), h.GetUsers)
-		admin.GET("/users/export", middleware.RequirePerm(roleSvc, "user:export"), h.ExportUsers)
-		admin.POST("/users", middleware.RequirePerm(roleSvc, "user:create"), h.CreateUser)
-		admin.PUT("/users/:id", middleware.RequirePerm(roleSvc, "user:update"), h.UpdateUser)
-		admin.DELETE("/users/:id", middleware.RequirePerm(roleSvc, "user:delete"), h.DeleteUser)
-		admin.PUT("/users/:id/password", middleware.RequirePerm(roleSvc, "user:password:reset"), h.UpdateUserPassword)
-		admin.PUT("/users/:id/status", middleware.RequirePerm(roleSvc, "user:status"), h.ToggleUserStatus)
-		admin.DELETE("/users/batch-delete", middleware.RequirePerm(roleSvc, "user:delete"), h.BatchDeleteUsers)
-		admin.PUT("/users/:id/roles", middleware.RequirePerm(roleSvc, "user:role"), h.AssignUserRoles)
-
 		// 标签管理
-		admin.GET("/tags", middleware.RequirePerm(roleSvc, "tag:list"), h.GetTags)
-		admin.POST("/tags", middleware.RequirePerm(roleSvc, "tag:create"), h.CreateTag)
-		admin.PUT("/tags/:id", middleware.RequirePerm(roleSvc, "tag:update"), h.UpdateTag)
-		admin.DELETE("/tags/:id", middleware.RequirePerm(roleSvc, "tag:delete"), h.DeleteTag)
-		admin.DELETE("/tags/batch-delete", middleware.RequirePerm(roleSvc, "tag:delete"), h.BatchDeleteTags)
+		admin.GET("/tags", h.GetTags)
+		admin.POST("/tags", h.CreateTag)
+		admin.PUT("/tags/:id", h.UpdateTag)
+		admin.DELETE("/tags/:id", h.DeleteTag)
+		admin.DELETE("/tags/batch-delete", h.BatchDeleteTags)
 
 		// 分类管理
-		admin.GET("/categories", middleware.RequirePerm(roleSvc, "category:list"), h.GetCategories)
-		admin.POST("/categories", middleware.RequirePerm(roleSvc, "category:create"), h.CreateCategory)
-		admin.PUT("/categories/:id", middleware.RequirePerm(roleSvc, "category:update"), h.UpdateCategory)
-		admin.DELETE("/categories/:id", middleware.RequirePerm(roleSvc, "category:delete"), h.DeleteCategory)
-		admin.DELETE("/categories/batch-delete", middleware.RequirePerm(roleSvc, "category:delete"), h.BatchDeleteCategories)
+		admin.GET("/categories", h.GetCategories)
+		admin.POST("/categories", h.CreateCategory)
+		admin.PUT("/categories/:id", h.UpdateCategory)
+		admin.DELETE("/categories/:id", h.DeleteCategory)
+		admin.DELETE("/categories/batch-delete", h.BatchDeleteCategories)
 
 		// 友情链接
-		admin.GET("/links", middleware.RequirePerm(roleSvc, "link:list"), h.GetLinks)
-		admin.POST("/links", middleware.RequirePerm(roleSvc, "link:create"), h.CreateLink)
-		admin.PUT("/links/:id", middleware.RequirePerm(roleSvc, "link:update"), h.UpdateLink)
-		admin.DELETE("/links/:id", middleware.RequirePerm(roleSvc, "link:delete"), h.DeleteLink)
-		admin.DELETE("/links/batch-delete", middleware.RequirePerm(roleSvc, "link:delete"), h.BatchDeleteLinks)
+		admin.GET("/links", h.GetLinks)
+		admin.POST("/links", h.CreateLink)
+		admin.PUT("/links/:id", h.UpdateLink)
+		admin.DELETE("/links/:id", h.DeleteLink)
+		admin.DELETE("/links/batch-delete", h.BatchDeleteLinks)
 
 		// 专题管理
-		admin.GET("/topics", middleware.RequirePerm(roleSvc, "topic:list"), h.GetTopics)
-		admin.POST("/topics", middleware.RequirePerm(roleSvc, "topic:create"), h.CreateTopic)
-		admin.PUT("/topics/:id", middleware.RequirePerm(roleSvc, "topic:update"), h.UpdateTopic)
-		admin.DELETE("/topics/:id", middleware.RequirePerm(roleSvc, "topic:delete"), h.DeleteTopic)
-		admin.DELETE("/topics/batch-delete", middleware.RequirePerm(roleSvc, "topic:delete"), h.BatchDeleteTopics)
-		admin.GET("/topics/:id/articles", middleware.RequirePerm(roleSvc, "topic:articles"), h.GetTopicArticles)
-		admin.GET("/articles/published-options", middleware.RequirePerm(roleSvc, "article:list"), h.GetPublishedArticleOptions)
+		admin.GET("/topics", h.GetTopics)
+		admin.POST("/topics", h.CreateTopic)
+		admin.PUT("/topics/:id", h.UpdateTopic)
+		admin.DELETE("/topics/:id", h.DeleteTopic)
+		admin.DELETE("/topics/batch-delete", h.BatchDeleteTopics)
+		admin.GET("/topics/:id/articles", h.GetTopicArticles)
+		admin.GET("/articles/published-options", h.GetPublishedArticleOptions)
 
 		// 文章管理
-		admin.GET("/articles", middleware.RequirePerm(roleSvc, "article:list"), h.GetArticles)
-		admin.GET("/articles/export", middleware.RequirePerm(roleSvc, "article:export"), h.ExportArticles)
-		admin.GET("/articles/:id", middleware.RequirePerm(roleSvc, "article:detail"), h.AdminArticleDetail)
-		admin.POST("/articles", middleware.RequirePerm(roleSvc, "article:create"), h.CreateArticle)
-		admin.PUT("/articles/:id", middleware.RequirePerm(roleSvc, "article:update"), h.UpdateArticle)
-		admin.PUT("/articles/:id/status", middleware.RequirePerm(roleSvc, "article:status"), h.UpdateArticleStatus)
-		admin.PUT("/articles/batch-status", middleware.RequirePerm(roleSvc, "article:status"), h.BatchUpdateArticleStatus)
-		admin.DELETE("/articles/:id", middleware.RequirePerm(roleSvc, "article:delete"), h.DeleteArticle)
-		admin.DELETE("/articles/batch-delete", middleware.RequirePerm(roleSvc, "article:delete"), h.BatchDeleteArticles)
+		admin.GET("/articles", h.GetArticles)
+		admin.GET("/articles/export", h.ExportArticles)
+		admin.GET("/articles/:id", h.AdminArticleDetail)
+		admin.POST("/articles", h.CreateArticle)
+		admin.PUT("/articles/:id", h.UpdateArticle)
+		admin.PUT("/articles/:id/status", h.UpdateArticleStatus)
+		admin.PUT("/articles/batch-status", h.BatchUpdateArticleStatus)
+		admin.DELETE("/articles/:id", h.DeleteArticle)
+		admin.DELETE("/articles/batch-delete", h.BatchDeleteArticles)
 
 		// 设置
-		admin.GET("/settings", middleware.RequirePerm(roleSvc, "setting:read"), h.AdminGetSettings)
-		admin.PUT("/settings", middleware.RequirePerm(roleSvc, "setting:update"), h.AdminUpdateSettings)
-		admin.POST("/settings/email/send-code", middleware.RequirePerm(roleSvc, "setting:email"), h.AdminSendEmailVerificationCode)
-		admin.POST("/settings/email/verify-code", middleware.RequirePerm(roleSvc, "setting:email"), h.AdminVerifyEmailVerificationCode)
-		admin.GET("/settings/export", middleware.RequirePerm(roleSvc, "setting:export"), h.AdminExportSettings)
-		admin.POST("/settings/import", middleware.RequirePerm(roleSvc, "setting:import"), h.AdminImportSettings)
-		admin.POST("/search/sync", middleware.RequirePerm(roleSvc, "setting:search"), h.AdminSyncMeiliSearch)
-		admin.GET("/search/stats", middleware.RequirePerm(roleSvc, "setting:search:read"), h.AdminGetMeiliSearchStats)
+		admin.GET("/settings", h.AdminGetSettings)
+		admin.PUT("/settings", h.AdminUpdateSettings)
+		admin.POST("/settings/email/send-code", h.AdminSendEmailVerificationCode)
+		admin.POST("/settings/email/verify-code", h.AdminVerifyEmailVerificationCode)
+		admin.GET("/settings/export", h.AdminExportSettings)
+		admin.POST("/settings/import", h.AdminImportSettings)
+		admin.POST("/search/sync", h.AdminSyncMeiliSearch)
+		admin.GET("/search/stats", h.AdminGetMeiliSearchStats)
 
 		// 独立配置接口
-		admin.GET("/settings/core", middleware.RequirePerm(roleSvc, "setting:core:read"), h.AdminGetCoreConfig)
-		admin.PUT("/settings/core", middleware.RequirePerm(roleSvc, "setting:core:update"), h.AdminUpdateCoreConfig)
-		admin.GET("/settings/privacy", middleware.RequirePerm(roleSvc, "setting:privacy:read"), h.AdminGetPrivacyConfig)
-		admin.PUT("/settings/privacy", middleware.RequirePerm(roleSvc, "setting:privacy:update"), h.AdminUpdatePrivacyConfig)
-		admin.GET("/settings/social", middleware.RequirePerm(roleSvc, "setting:social:read"), h.AdminGetSocialConfig)
-		admin.PUT("/settings/social", middleware.RequirePerm(roleSvc, "setting:social:update"), h.AdminUpdateSocialConfig)
-		admin.GET("/settings/search", middleware.RequirePerm(roleSvc, "setting:search:read"), h.AdminGetSearchConfig)
-		admin.PUT("/settings/search", middleware.RequirePerm(roleSvc, "setting:search:update"), h.AdminUpdateSearchConfig)
-		admin.GET("/settings/storage", middleware.RequirePerm(roleSvc, "setting:storage:read"), h.AdminGetStorageConfig)
-		admin.PUT("/settings/storage", middleware.RequirePerm(roleSvc, "setting:storage:update"), h.AdminUpdateStorageConfig)
-		admin.GET("/settings/email", middleware.RequirePerm(roleSvc, "setting:email:read"), h.AdminGetEmailConfig)
-		admin.PUT("/settings/email", middleware.RequirePerm(roleSvc, "setting:email:update"), h.AdminUpdateEmailConfig)
-		admin.GET("/settings/wechat", middleware.RequirePerm(roleSvc, "setting:wechat:read"), h.AdminGetWechatConfig)
-		admin.PUT("/settings/wechat", middleware.RequirePerm(roleSvc, "setting:wechat:update"), h.AdminUpdateWechatConfig)
+		admin.GET("/settings/core", h.AdminGetCoreConfig)
+		admin.PUT("/settings/core", h.AdminUpdateCoreConfig)
+		admin.GET("/settings/privacy", h.AdminGetPrivacyConfig)
+		admin.PUT("/settings/privacy", h.AdminUpdatePrivacyConfig)
+		admin.GET("/settings/social", h.AdminGetSocialConfig)
+		admin.PUT("/settings/social", h.AdminUpdateSocialConfig)
+		admin.GET("/settings/search", h.AdminGetSearchConfig)
+		admin.PUT("/settings/search", h.AdminUpdateSearchConfig)
+		admin.GET("/settings/storage", h.AdminGetStorageConfig)
+		admin.PUT("/settings/storage", h.AdminUpdateStorageConfig)
+		admin.GET("/settings/email", h.AdminGetEmailConfig)
+		admin.PUT("/settings/email", h.AdminUpdateEmailConfig)
+		admin.GET("/settings/wechat", h.AdminGetWechatConfig)
+		admin.PUT("/settings/wechat", h.AdminUpdateWechatConfig)
 
 		// 文件管理
-		admin.GET("/files", middleware.RequirePerm(roleSvc, "file:list"), h.GetFiles)
-		admin.POST("/files/upload", middleware.RequirePerm(roleSvc, "file:upload"), h.UploadFile)
-		admin.DELETE("/files/:id", middleware.RequirePerm(roleSvc, "file:delete"), h.DeleteFile)
+		admin.GET("/files", h.GetFiles)
+		admin.POST("/files/upload", h.UploadFile)
+		admin.DELETE("/files/:id", h.DeleteFile)
 		// 图片代理：302 重定向到临时 URL，避免过期（无需认证，因为文件路径本身就是唯一标识）
 		e.GET("/admin/files/image/*path", h.ProxyImage)
 
 		// 仪表盘
-		admin.GET("/dashboard", middleware.RequirePerm(roleSvc, "dashboard:read"), h.Dashboard)
-		admin.GET("/dashboard/visitors", middleware.RequirePerm(roleSvc, "dashboard:visitors"), h.VisitorRecords)
-		admin.DELETE("/dashboard/visitors/:id", middleware.RequirePerm(roleSvc, "dashboard:visitors:delete"), h.DeleteVisitorRecord)
-		admin.DELETE("/dashboard/visitors/batch-delete", middleware.RequirePerm(roleSvc, "dashboard:visitors:delete"), h.BatchDeleteVisitorRecords)
-		admin.DELETE("/dashboard/visitors/clear", middleware.RequirePerm(roleSvc, "dashboard:visitors:delete"), h.ClearAllVisitorRecords)
-		admin.GET("/dashboard/errors", middleware.RequirePerm(roleSvc, "dashboard:errors"), h.ErrorLogRecords)
-		admin.DELETE("/dashboard/errors/:id", middleware.RequirePerm(roleSvc, "dashboard:errors:delete"), h.DeleteErrorLog)
-		admin.DELETE("/dashboard/errors/batch-delete", middleware.RequirePerm(roleSvc, "dashboard:errors:delete"), h.BatchDeleteErrorLogs)
-		admin.DELETE("/dashboard/errors/clear", middleware.RequirePerm(roleSvc, "dashboard:errors:delete"), h.ClearAllErrorLogs)
-		admin.POST("/dashboard/errors/import", middleware.RequirePerm(roleSvc, "dashboard:errors"), h.ImportErrorLogs)
-		admin.GET("/dashboard/errors/export", middleware.RequirePerm(roleSvc, "dashboard:errors"), h.ExportErrorLogs)
-		admin.GET("/dashboard/pv", middleware.RequirePerm(roleSvc, "dashboard:pv"), h.PV)
-		admin.GET("/dashboard/tag-statistics", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.TagStatistics)
-		admin.GET("/dashboard/category-statistics", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.CategoryStatistics)
-		admin.GET("/dashboard/heatmap", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.ArticlePublishHeatmap)
-		admin.GET("/dashboard/topic-statistics", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.TopicStatistics)
-		admin.GET("/dashboard/mp-user-growth", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.MpUserGrowth)
-		admin.GET("/dashboard/article-read-statistics", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.ArticleReadStatistics)
-		admin.GET("/dashboard/category-read-statistics", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.CategoryReadStatistics)
-		admin.GET("/dashboard/tag-read-statistics", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.TagReadStatistics)
-		admin.GET("/dashboard/content-trend", middleware.RequirePerm(roleSvc, "dashboard:statistics"), h.ContentTrend)
-
-		// 缓存管理 - FROZEN (L3): 缓存管理已冻结，前端应隐藏入口
-		admin.POST("/cache/clear", middleware.RequirePerm(roleSvc, "cache:clear"), h.ClearCache)
-		admin.POST("/cache/warmup", middleware.RequirePerm(roleSvc, "cache:warmup"), h.WarmupCache)
-		admin.GET("/cache/stats", middleware.RequirePerm(roleSvc, "cache:stats"), h.CacheStats)
-
-		// 备份管理 - FROZEN (L3): 备份管理已冻结，前端应隐藏入口
-		admin.POST("/backup/export", middleware.RequirePerm(roleSvc, "backup:export"), h.ExportData)
-		admin.GET("/backup/list", middleware.RequirePerm(roleSvc, "backup:list"), h.ListBackups)
-		admin.GET("/backup/download/:fileName", middleware.RequirePerm(roleSvc, "backup:download"), h.DownloadBackup)
-		admin.DELETE("/backup/:fileName", middleware.RequirePerm(roleSvc, "backup:delete"), h.DeleteBackup)
-		admin.GET("/backup/stats", middleware.RequirePerm(roleSvc, "backup:stats"), h.GetBackupStats)
-
-		// 微信用户管理 - FROZEN (L2/L3): 小程序用户管理已冻结，前端应隐藏入口
-		admin.GET("/mp-users", middleware.RequirePerm(roleSvc, "mpuser:list"), h.AdminMPUsers)
-		admin.GET("/mp-users/:openid", middleware.RequirePerm(roleSvc, "mpuser:detail"), h.AdminMPUserDetail)
-		admin.GET("/mp-users/:openid/profile", middleware.RequirePerm(roleSvc, "mpuser:profile"), h.AdminMPUserProfile)
-		admin.POST("/mp-users/:openid/profile", middleware.RequirePerm(roleSvc, "mpuser:profile"), h.AdminMPUserGenerateProfile)
-		admin.POST("/mp-users/:openid/tags/generate", middleware.RequirePerm(roleSvc, "mpuser:tags"), h.AdminMPUserGenerateTags)
-		admin.GET("/mp-users/:openid/tags", middleware.RequirePerm(roleSvc, "mpuser:tags"), h.AdminMPUserTags)
-		admin.DELETE("/mp-users/:openid/tags/:tagId", middleware.RequirePerm(roleSvc, "mpuser:tags"), h.AdminMPUserDeleteTag)
-		admin.POST("/mp-users/:openid/radar/refresh", middleware.RequirePerm(roleSvc, "mpuser:profile"), h.AdminMPUserRefreshRadar)
-
-		// 权限管理 - FROZEN (L3): 权限管理已冻结，前端应隐藏入口
-		admin.GET("/permissions", middleware.RequirePerm(roleSvc, "permission:list"), h.GetPermissions)
-		admin.GET("/permissions/tree", middleware.RequirePerm(roleSvc, "permission:list"), h.GetPermissionTree)
-		admin.GET("/permissions/:id", middleware.RequirePerm(roleSvc, "permission:list"), h.GetPermission)
-		admin.POST("/permissions", middleware.RequirePerm(roleSvc, "permission:list"), h.CreatePermission)
-		admin.PUT("/permissions/:id", middleware.RequirePerm(roleSvc, "permission:list"), h.UpdatePermission)
-		admin.DELETE("/permissions/:id", middleware.RequirePerm(roleSvc, "permission:list"), h.DeletePermission)
-
-		// 角色管理 - FROZEN (L3): 角色管理已冻结，前端应隐藏入口
-		admin.GET("/roles", middleware.RequirePerm(roleSvc, "role:list"), h.GetRoles)
-		admin.GET("/roles/all", middleware.RequirePerm(roleSvc, "role:list"), h.GetAllRoles)
-		admin.GET("/roles/:id", middleware.RequirePerm(roleSvc, "role:list"), h.GetRole)
-		admin.POST("/roles", middleware.RequirePerm(roleSvc, "role:create"), h.CreateRole)
-		admin.PUT("/roles/:id", middleware.RequirePerm(roleSvc, "role:update"), h.UpdateRole)
-		admin.DELETE("/roles/:id", middleware.RequirePerm(roleSvc, "role:delete"), h.DeleteRole)
-		admin.PUT("/roles/:id/permissions", middleware.RequirePerm(roleSvc, "role:permission"), h.AssignRolePermissions)
-		admin.GET("/roles/:id/permissions", middleware.RequirePerm(roleSvc, "role:list"), h.GetRolePermissions)
-
-		// 当前用户权限
-		admin.GET("/user/permissions", h.GetUserPermissions)
-		// 当前用户菜单（前端动态菜单渲染用）
-		admin.GET("/user/menus", h.GetUserMenus)
-
-		// 数据维护 - FROZEN (L3): 数据维护已冻结，前端应隐藏入口
-		admin.GET("/maintenance/stats", middleware.RequirePerm(roleSvc, "maintenance:stats"), h.AdminMaintenanceStats)
-		admin.POST("/maintenance/cleanup-logs", middleware.RequirePerm(roleSvc, "maintenance:cleanup"), h.AdminMaintenanceCleanupLogs)
+		admin.GET("/dashboard", h.Dashboard)
+		admin.GET("/dashboard/visitors", h.VisitorRecords)
+		admin.DELETE("/dashboard/visitors/:id", h.DeleteVisitorRecord)
+		admin.DELETE("/dashboard/visitors/batch-delete", h.BatchDeleteVisitorRecords)
+		admin.DELETE("/dashboard/visitors/clear", h.ClearAllVisitorRecords)
+		admin.GET("/dashboard/errors", h.ErrorLogRecords)
+		admin.DELETE("/dashboard/errors/:id", h.DeleteErrorLog)
+		admin.DELETE("/dashboard/errors/batch-delete", h.BatchDeleteErrorLogs)
+		admin.DELETE("/dashboard/errors/clear", h.ClearAllErrorLogs)
+		admin.POST("/dashboard/errors/import", h.ImportErrorLogs)
+		admin.GET("/dashboard/errors/export", h.ExportErrorLogs)
+		admin.GET("/dashboard/pv", h.PV)
+		admin.GET("/dashboard/tag-statistics", h.TagStatistics)
+		admin.GET("/dashboard/category-statistics", h.CategoryStatistics)
+		admin.GET("/dashboard/heatmap", h.ArticlePublishHeatmap)
+		admin.GET("/dashboard/topic-statistics", h.TopicStatistics)
+		admin.GET("/dashboard/mp-user-growth", h.MpUserGrowth)
+		admin.GET("/dashboard/article-read-statistics", h.ArticleReadStatistics)
+		admin.GET("/dashboard/category-read-statistics", h.CategoryReadStatistics)
+		admin.GET("/dashboard/tag-read-statistics", h.TagReadStatistics)
+		admin.GET("/dashboard/content-trend", h.ContentTrend)
 	}
 
 	// 门户端接口（公开访问）。添加公开读接口限流（60次/分钟）
@@ -214,7 +154,7 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		web.GET("/tags", h.WebTags)
 		web.GET("/articles", h.WebArticles)
 		web.GET("/articles/:id", h.WebArticleDetail)
-		web.GET("/articles/slug/:slug", h.WebArticleBySlug) // 新增：slug 查询路由（SEO 友好）
+		web.GET("/articles/slug/:slug", h.WebArticleBySlug)
 		web.GET("/categories/:id/articles", h.WebArticlesByCategory)
 		web.GET("/tags/:id/articles", h.WebArticlesByTag)
 		web.GET("/archives", h.WebArchives)
@@ -222,10 +162,9 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		web.GET("/topics/:id", h.WebTopicDetail)
 		web.GET("/topics/:id/articles", h.WebTopicArticles)
 		web.GET("/search/hot", h.WebHotSearches)
-		web.GET("/search", h.WebSearch) // 搜索接口单独限流
+		web.GET("/search", h.WebSearch)
 		web.GET("/articles/:id/related", h.WebRelatedArticles)
 		web.GET("/articles/hot", h.WebHotArticles)
-		// 点赞接口：先过写接口限流（10次/分钟），再过点赞防刷（24小时内只能点1次）
 		web.POST("/articles/:id/like", middleware.LikeRateLimit(redisClient), h.WebLikeArticle)
 		web.GET("/articles/random", h.WebRandomArticle)
 		web.GET("/links", h.GetActiveLinks)
@@ -236,9 +175,6 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 	mp.Use(middleware.RateLimit(redisClient, middleware.PublicReadRateLimit))
 	{
 		mp.POST("/auth/session", h.MpAuthSession)
-		mp.GET("/user/profile", h.MpUserProfile)
-		mp.POST("/user/profile", h.MpUpdateUserProfile)
-		mp.POST("/behavior", h.MpReportBehavior)
 		mp.GET("/settings", h.MpSettings)
 		mp.GET("/compliance", h.MpCompliance)
 		mp.GET("/categories", h.MpCategories)
@@ -262,7 +198,5 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		mp.GET("/search/hot", h.WebHotSearches)
 		mp.GET("/privacy-policy", h.MpPrivacyPolicy)
 		mp.DELETE("/user", h.MpDeleteUser)
-		mp.POST("/subscribe", h.MpSubscribe)
-		mp.GET("/subscribe/status", h.MpSubscribeStatus)
 	}
 }

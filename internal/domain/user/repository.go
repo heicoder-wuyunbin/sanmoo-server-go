@@ -5,17 +5,9 @@ import (
 	domarticle "sanmoo-server-go/internal/domain/article"
 )
 
-type ListQuery struct {
-	Page    int
-	Size    int
-	Keyword string
-}
-
 type Repository interface {
 	FindByIDUser(ctx context.Context, id uint64) (*User, error)
 	FindByUsername(ctx context.Context, username string) (*User, error)
-	ListUsers(ctx context.Context, q ListQuery) ([]User, int64, error)
-	CreateUser(ctx context.Context, u *User) (uint64, error)
 	UpdateUser(ctx context.Context, u *User) error
 	DeleteUser(ctx context.Context, id uint64) error
 	BatchDeleteUsers(ctx context.Context, ids []uint64) error

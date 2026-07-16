@@ -125,57 +125,12 @@ type tUser struct {
 	LastLoginIp       string     `gorm:"column:last_login_ip"`
 	LoginFailureCount uint       `gorm:"column:login_failure_count"`
 	LockedUntil       *time.Time `gorm:"column:locked_until"`
+	IsAdmin           bool       `gorm:"column:is_admin"`
 	CreateTime        time.Time  `gorm:"column:create_time"`
 	UpdateTime        time.Time  `gorm:"column:update_time"`
 }
 
 func (tUser) TableName() string { return "t_user" }
-
-type tRole struct {
-	ID          uint64    `gorm:"column:id;primaryKey"`
-	Name        string    `gorm:"column:name"`
-	Description string    `gorm:"column:description"`
-	Status      int8      `gorm:"column:status"`
-	SortOrder   int       `gorm:"column:sort_order"`
-	CreateTime  time.Time `gorm:"column:create_time;autoCreateTime"`
-	UpdateTime  time.Time `gorm:"column:update_time;autoUpdateTime"`
-}
-
-func (tRole) TableName() string { return "t_role" }
-
-type tUserRole struct {
-	ID     uint64 `gorm:"column:id;primaryKey"`
-	UserID uint64 `gorm:"column:user_id"`
-	RoleID uint64 `gorm:"column:role_id"`
-}
-
-func (tUserRole) TableName() string { return "t_user_role" }
-
-type tPermission struct {
-	ID          uint64    `gorm:"column:id;primaryKey"`
-	PermKey     string    `gorm:"column:perm_key"`
-	Name        string    `gorm:"column:name"`
-	Module      string    `gorm:"column:module"`
-	Type        string    `gorm:"column:type"`
-	Description string    `gorm:"column:description"`
-	FrontPath   string    `gorm:"column:front_path"`
-	Icon        string    `gorm:"column:icon"`
-	SortOrder   int       `gorm:"column:sort_order"`
-	Status      int8      `gorm:"column:status"`
-	CreateTime  time.Time `gorm:"column:create_time;autoCreateTime"`
-	UpdateTime  time.Time `gorm:"column:update_time;autoUpdateTime"`
-}
-
-func (tPermission) TableName() string { return "t_permission" }
-
-type tRolePermission struct {
-	ID         uint64    `gorm:"column:id;primaryKey"`
-	RoleID     uint64    `gorm:"column:role_id"`
-	PermKey    string    `gorm:"column:perm_key"`
-	CreateTime time.Time `gorm:"column:create_time;autoCreateTime"`
-}
-
-func (tRolePermission) TableName() string { return "t_role_permission" }
 
 type tTag struct {
 	ID         uint64     `gorm:"column:id;primaryKey"`
@@ -261,30 +216,6 @@ type tMPUser struct {
 
 func (tMPUser) TableName() string { return "t_mp_user" }
 
-type tMPUserBehavior struct {
-	ID          uint64    `gorm:"column:id;primaryKey"`
-	OpenID      string    `gorm:"column:openid"`
-	ArticleID   uint64    `gorm:"column:article_id"`
-	EventType   string    `gorm:"column:event_type"`
-	StaySeconds int       `gorm:"column:stay_seconds"`
-	Scene       string    `gorm:"column:scene"`
-	Strategy    string    `gorm:"column:strategy"`
-	EventTime   time.Time `gorm:"column:event_time"`
-}
-
-func (tMPUserBehavior) TableName() string { return "t_mp_user_behavior" }
-
-type tMPUserInterest struct {
-	ID            uint64    `gorm:"column:id;primaryKey"`
-	OpenID        string    `gorm:"column:openid"`
-	DimensionType string    `gorm:"column:dimension_type"`
-	DimensionID   uint64    `gorm:"column:dimension_id"`
-	Score         float64   `gorm:"column:score"`
-	UpdateTime    time.Time `gorm:"column:update_time"`
-}
-
-func (tMPUserInterest) TableName() string { return "t_mp_user_interest" }
-
 type tMPFavorite struct {
 	ID         uint64    `gorm:"column:id;primaryKey"`
 	OpenID     string    `gorm:"column:openid"`
@@ -294,40 +225,6 @@ type tMPFavorite struct {
 }
 
 func (tMPFavorite) TableName() string { return "t_mp_user_favorite" }
-
-type tMPUserTag struct {
-	ID          uint64    `gorm:"column:id;primaryKey"`
-	OpenID      string    `gorm:"column:openid"`
-	TagName     string    `gorm:"column:tag_name"`
-	TagCategory string    `gorm:"column:tag_category"`
-	Score       float64   `gorm:"column:score"`
-	Source      string    `gorm:"column:source"`
-	CreateTime  time.Time `gorm:"column:create_time"`
-	UpdateTime  time.Time `gorm:"column:update_time"`
-}
-
-func (tMPUserTag) TableName() string { return "t_mp_user_tag" }
-
-type tMPUserProfile struct {
-	ID         uint64    `gorm:"column:id;primaryKey"`
-	OpenID     string    `gorm:"column:openid"`
-	Dimension  string    `gorm:"column:dimension"`
-	Score      float64   `gorm:"column:score"`
-	CreateTime time.Time `gorm:"column:create_time"`
-	UpdateTime time.Time `gorm:"column:update_time"`
-}
-
-func (tMPUserProfile) TableName() string { return "t_mp_user_profile" }
-
-type TMPUserSubscribe struct {
-	ID         uint64    `gorm:"column:id;primaryKey"`
-	OpenID     string    `gorm:"column:openid;size:128;uniqueIndex"`
-	Subscribe  bool      `gorm:"column:subscribe"`
-	CreateTime time.Time `gorm:"column:create_time;autoCreateTime"`
-	UpdateTime time.Time `gorm:"column:update_time;autoUpdateTime"`
-}
-
-func (TMPUserSubscribe) TableName() string { return "t_mp_user_subscribe" }
 
 type tTopic struct {
 	ID          uint64    `gorm:"column:id;primaryKey"`
@@ -351,14 +248,6 @@ type tArticleTopicRel struct {
 }
 
 func (tArticleTopicRel) TableName() string { return "t_article_topic_rel" }
-
-type tSearchHistory struct {
-	ID         uint64    `gorm:"column:id;primaryKey"`
-	Keyword    string    `gorm:"column:keyword"`
-	SearchTime time.Time `gorm:"column:search_time"`
-}
-
-func (tSearchHistory) TableName() string { return "t_search_history" }
 
 type TAccessLog struct {
 	ID             uint64    `gorm:"column:id;primaryKey"`

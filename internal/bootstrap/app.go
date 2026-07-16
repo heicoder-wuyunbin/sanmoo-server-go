@@ -8,22 +8,15 @@ import (
 
 	"sanmoo-server-go/internal/application/article"
 	"sanmoo-server-go/internal/application/auth"
-	backupapp "sanmoo-server-go/internal/application/backup"
-	cacheapp "sanmoo-server-go/internal/application/cache"
 	"sanmoo-server-go/internal/application/category"
 	"sanmoo-server-go/internal/application/dashboard"
 	"sanmoo-server-go/internal/application/file"
 	linkapp "sanmoo-server-go/internal/application/link"
-	maintenanceapp "sanmoo-server-go/internal/application/maintenance"
 	mpuserapp "sanmoo-server-go/internal/application/mpuser"
-	permsvc "sanmoo-server-go/internal/application/permission"
-	"sanmoo-server-go/internal/application/recommendation"
-	rolesvc "sanmoo-server-go/internal/application/role"
 	"sanmoo-server-go/internal/application/scheduler"
 	"sanmoo-server-go/internal/application/setting"
 	"sanmoo-server-go/internal/application/tag"
 	"sanmoo-server-go/internal/application/topic"
-	"sanmoo-server-go/internal/application/user"
 	"sanmoo-server-go/internal/infrastructure/cache"
 	"sanmoo-server-go/internal/infrastructure/config"
 	"sanmoo-server-go/internal/infrastructure/db"
@@ -104,49 +97,31 @@ func New(cfg *config.Config) (*App, error) {
 
 	logger.Infof("初始化应用服务...")
 	authSvc := auth.NewService(repo, jwtMgr, verificationService, emailService, wechatProvider)
-	userSvc := user.NewService(repo)
 	tagSvc := tag.NewService(repo, bizCache)
 	categorySvc := category.NewService(repo, bizCache)
 
-	recRegistry := recommendation.NewRegistry([]recommendation.Strategy{
-		recommendation.NewRuleStrategy(repo),
-		recommendation.NewWeightedStrategy(repo),
-		recommendation.NewCFStrategy(repo),
-	}, recommendation.StrategyRule)
-
-	articleSvc := article.NewService(repo, bizCache, recRegistry, repo)
+	articleSvc := article.NewService(repo, bizCache)
 	topicSvc := topic.NewService(repo)
 	settingSvc := setting.NewService(repo, emailService, verificationService, bizCache)
 	fileSvc := file.NewService(repo)
 	dashboardSvc := dashboard.NewService(repo, bizCache)
-	mpUserSvc := mpuserapp.NewService(repo)
-	backupSvc := backupapp.NewService(database)
+	mpUserSvc := mpuserapp.NewService(repo, repo)
 	linkRepo := mysqlrepo.NewLinkRepo(database)
 	linkSvc := linkapp.NewLinkService(linkRepo)
-	permSvc := permsvc.NewService(repo, bizCache)
-	roleSvc := rolesvc.NewService(repo, repo, bizCache)
-	maintenanceSvc := maintenanceapp.NewService(database)
 	logger.Infof("应用服务初始化成功")
 
 	logger.Infof("初始化HTTP处理器...")
-	cacheMgmtSvc := cacheapp.NewService(bizCache, articleSvc, categorySvc, tagSvc, dashboardSvc, settingSvc)
 	h := handler.New(handler.Services{
-		Auth:        authSvc,
-		User:        userSvc,
-		Tag:         tagSvc,
-		Category:    categorySvc,
-		Article:     articleSvc,
-		Topic:       topicSvc,
-		Setting:     settingSvc,
-		File:        fileSvc,
-		Dashboard:   dashboardSvc,
-		Cache:       cacheMgmtSvc,
-		MPUser:      mpUserSvc,
-		Backup:      backupSvc,
-		Link:        linkSvc,
-		Permission:  permSvc,
-		Role:        roleSvc,
-		Maintenance: maintenanceSvc,
+		Auth:      authSvc,
+		Tag:       tagSvc,
+		Category:  categorySvc,
+		Article:   articleSvc,
+		Topic:     topicSvc,
+		Setting:   settingSvc,
+		File:      fileSvc,
+		Dashboard: dashboardSvc,
+		MPUser:    mpUserSvc,
+		Link:      linkSvc,
 	})
 	logger.Infof("HTTP处理器初始化成功")
 
@@ -166,13 +141,8 @@ func New(cfg *config.Config) (*App, error) {
 	engine.Use(middleware.AccessLogMiddleware(database))
 
 	logger.Infof("注册路由...")
-	router.Register(engine, h, jwtMgr, repo, roleSvc, redisClient)
+	router.Register(engine, h, jwtMgr, repo, redisClient)
 	logger.Infof("路由注册成功")
-
-	// 启动定时清理任务
-	logger.Infof("启动定时清理任务...")
-	maintenanceSvc.StartDailyCleanup()
-	logger.Infof("定时清理任务已启动")
 
 	// 启动定时发布调度器
 	logger.Infof("启动定时发布调度器...")

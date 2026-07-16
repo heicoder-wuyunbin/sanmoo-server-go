@@ -10,8 +10,6 @@ import (
 type Claims struct {
 	UserID   uint64 `json:"userId"`
 	Username string `json:"username"`
-	RoleID   uint64 `json:"roleId"`
-	RoleName string `json:"roleName"`
 	jwt.RegisteredClaims
 }
 
@@ -31,15 +29,15 @@ func NewJWTManager(accessSecret, refreshSecret string, accessTTLSeconds, refresh
 	}
 }
 
-func (m *JWTManager) GenerateAccessToken(userID uint64, username string, roleID uint64, roleName string) (string, error) {
-	claims := Claims{UserID: userID, Username: username, RoleID: roleID, RoleName: roleName,
+func (m *JWTManager) GenerateAccessToken(userID uint64, username string) (string, error) {
+	claims := Claims{UserID: userID, Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(m.accessTTL)), IssuedAt: jwt.NewNumericDate(time.Now())}}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(m.accessSecret)
 }
 
-func (m *JWTManager) GenerateRefreshToken(userID uint64, username string, roleID uint64, roleName string) (string, error) {
-	claims := Claims{UserID: userID, Username: username, RoleID: roleID, RoleName: roleName,
+func (m *JWTManager) GenerateRefreshToken(userID uint64, username string) (string, error) {
+	claims := Claims{UserID: userID, Username: username,
 		RegisteredClaims: jwt.RegisteredClaims{ExpiresAt: jwt.NewNumericDate(time.Now().Add(m.refreshTTL)), IssuedAt: jwt.NewNumericDate(time.Now())}}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(m.refreshSecret)

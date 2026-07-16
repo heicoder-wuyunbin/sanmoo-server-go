@@ -7,7 +7,6 @@ import (
 
 	"sanmoo-server-go/internal/application/recommendation"
 	domarticle "sanmoo-server-go/internal/domain/article"
-	domsetting "sanmoo-server-go/internal/domain/setting"
 	"sanmoo-server-go/internal/infrastructure/cache"
 	"sanmoo-server-go/internal/infrastructure/logger"
 	"sanmoo-server-go/internal/interfaces/http/dto"
@@ -15,14 +14,12 @@ import (
 )
 
 type Service struct {
-	repo        domarticle.Repository
-	cache       *cache.BusinessCache
-	recRegistry *recommendation.Registry
-	settingRepo domsetting.Repository
+	repo  domarticle.Repository
+	cache *cache.BusinessCache
 }
 
-func NewService(repo domarticle.Repository, cache *cache.BusinessCache, recRegistry *recommendation.Registry, settingRepo domsetting.Repository) *Service {
-	return &Service{repo: repo, cache: cache, recRegistry: recRegistry, settingRepo: settingRepo}
+func NewService(repo domarticle.Repository, cache *cache.BusinessCache) *Service {
+	return &Service{repo: repo, cache: cache}
 }
 
 func (s *Service) ListArticles(ctx context.Context, page, size int, keyword string, categoryID, tagID uint64, isPublished *int) (*pagination.PageData, error) {
@@ -192,40 +189,10 @@ func (s *Service) Archives(ctx context.Context) (*dto.ListResponse[domarticle.Ar
 }
 
 func (s *Service) RecommendArticlesForMP(ctx context.Context, articleID uint64, size int) (*dto.PageResponse[domarticle.Article], error) {
-	strategyName := "rule"
-	if s.settingRepo != nil {
-		st, err := s.settingRepo.Get(ctx)
-		if err == nil && st != nil && st.UIConfig != nil {
-			if name, ok := st.UIConfig["recommendStrategy"].(string); ok && name != "" {
-				strategyName = name
-			}
-		}
+	articles, err := recommendation.GetPublishedArticles(ctx, s.repo, size)
+	if err != nil {
+		return nil, err
 	}
-
-	var articles []domarticle.Article
-	var err error
-
-	if s.recRegistry != nil {
-		strategy := s.recRegistry.Get(strategyName)
-		if strategy != nil {
-			articles, err = strategy.Recommend(ctx, recommendation.Context{
-				CurrentArticleID: articleID,
-				Limit:            size,
-			})
-			if err != nil {
-				return nil, err
-			}
-		}
-	}
-
-	if len(articles) == 0 {
-		q := domarticle.ListQuery{Page: 1, Size: size, IsPublished: func() *bool { b := true; return &b }()}
-		articles, _, err = s.repo.ListArticles(ctx, q)
-		if err != nil {
-			return nil, err
-		}
-	}
-
 	return &dto.PageResponse[domarticle.Article]{
 		List:  articles,
 		Total: int64(len(articles)),

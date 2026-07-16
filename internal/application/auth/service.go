@@ -14,7 +14,6 @@ import (
 	"sanmoo-server-go/internal/infrastructure/security"
 	"sanmoo-server-go/internal/interfaces/http/dto"
 	apperr "sanmoo-server-go/internal/shared/errors"
-	"strings"
 	"time"
 
 	"github.com/redis/go-redis/v9"
@@ -59,7 +58,7 @@ func (s *Service) Login(ctx context.Context, username, password, code, clientIP 
 	}
 
 	// 开启邮箱验证码后，后台管理员登录必须校验验证码
-	if s.emailService != nil && s.emailService.IsMFAEnabled() && strings.Contains(strings.ToUpper(u.RoleName), "ADMIN") {
+	if s.emailService != nil && s.emailService.IsMFAEnabled() && u.IsAdmin {
 		if code == "" {
 			return nil, apperr.ErrMFARequired
 		}
@@ -83,8 +82,8 @@ func (s *Service) Login(ctx context.Context, username, password, code, clientIP 
 	u.LastLoginIp = clientIP
 	_ = s.userRepo.UpdateUser(ctx, u)
 
-	accessToken, _ := s.jwt.GenerateAccessToken(u.ID, u.Username, u.RoleID, "admin")
-	refreshToken, _ := s.jwt.GenerateRefreshToken(u.ID, u.Username, u.RoleID, "admin")
+	accessToken, _ := s.jwt.GenerateAccessToken(u.ID, u.Username)
+	refreshToken, _ := s.jwt.GenerateRefreshToken(u.ID, u.Username)
 	return &dto.AuthLoginResponse{AccessToken: accessToken, RefreshToken: refreshToken, User: u}, nil
 }
 
@@ -100,7 +99,7 @@ func (s *Service) SendLoginVerificationCode(ctx context.Context, username, passw
 	if s.emailService == nil || !s.emailService.IsConfigured() {
 		return nil, apperr.New(apperr.ErrInvalidParam.Code, "邮件服务未配置")
 	}
-	if !s.emailService.IsMFAEnabled() || !strings.Contains(strings.ToUpper(u.RoleName), "ADMIN") {
+	if !s.emailService.IsMFAEnabled() || !u.IsAdmin {
 		return nil, apperr.New(apperr.ErrInvalidParam.Code, "当前未开启后台登录邮箱验证码")
 	}
 	if u.Email == "" {
@@ -138,7 +137,7 @@ func (s *Service) CheckMFA(ctx context.Context, username string) (bool, error) {
 	if !s.emailService.IsMFAEnabled() {
 		return false, nil
 	}
-	if !strings.Contains(strings.ToUpper(u.RoleName), "ADMIN") {
+	if !u.IsAdmin {
 		return false, nil
 	}
 	return u.Email != "", nil
@@ -165,8 +164,8 @@ func (s *Service) VerifyLoginVerificationCode(ctx context.Context, userID uint64
 	if err != nil {
 		return nil, err
 	}
-	accessToken, _ := s.jwt.GenerateAccessToken(u.ID, u.Username, u.RoleID, "admin")
-	refreshToken, _ := s.jwt.GenerateRefreshToken(u.ID, u.Username, u.RoleID, "admin")
+	accessToken, _ := s.jwt.GenerateAccessToken(u.ID, u.Username)
+	refreshToken, _ := s.jwt.GenerateRefreshToken(u.ID, u.Username)
 	return &dto.AuthLoginResponse{AccessToken: accessToken, RefreshToken: refreshToken, User: u}, nil
 }
 
@@ -175,9 +174,24 @@ func (s *Service) RefreshToken(ctx context.Context, refreshToken string) (*dto.A
 	if err != nil {
 		return nil, err
 	}
-	accessToken, _ := s.jwt.GenerateAccessToken(claims.UserID, claims.Username, claims.RoleID, claims.RoleName)
-	newRefreshToken, _ := s.jwt.GenerateRefreshToken(claims.UserID, claims.Username, claims.RoleID, claims.RoleName)
+	accessToken, _ := s.jwt.GenerateAccessToken(claims.UserID, claims.Username)
+	newRefreshToken, _ := s.jwt.GenerateRefreshToken(claims.UserID, claims.Username)
 	return &dto.AuthRefreshResponse{AccessToken: accessToken, RefreshToken: newRefreshToken}, nil
+}
+
+// ChangePassword 修改当前用户密码。
+func (s *Service) ChangePassword(ctx context.Context, userID uint64, oldPassword, newPassword string) error {
+	u, err := s.userRepo.FindByIDUser(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if !u.VerifyPassword(oldPassword) {
+		return apperr.ErrBadCredential
+	}
+	if err := u.SetPassword(newPassword); err != nil {
+		return err
+	}
+	return s.userRepo.UpdateUser(ctx, u)
 }
 
 func (s *Service) MPAuthSession(ctx context.Context, code string) (*dto.MPAuthSessionResponse, error) {

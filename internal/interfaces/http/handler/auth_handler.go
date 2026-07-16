@@ -2,6 +2,7 @@ package handler
 
 import (
 	"sanmoo-server-go/internal/interfaces/http/dto"
+	"sanmoo-server-go/internal/interfaces/http/middleware"
 	apperr "sanmoo-server-go/internal/shared/errors"
 	"sanmoo-server-go/internal/shared/netutil"
 	"sanmoo-server-go/internal/shared/response"
@@ -82,4 +83,22 @@ func (h *Handler) Refresh(c *gin.Context) {
 		return
 	}
 	response.Ok(c, out)
+}
+
+func (h *Handler) ChangePassword(c *gin.Context) {
+	userID, exists := c.Get(middleware.CtxUserIDKey)
+	if !exists {
+		response.Fail(c, apperr.ErrUnauthorized)
+		return
+	}
+	var req dto.UpdatePasswordRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Fail(c, apperr.ErrInvalidParam)
+		return
+	}
+	if err := h.svc.Auth.ChangePassword(c.Request.Context(), userID.(uint64), req.OldPassword, req.NewPassword); err != nil {
+		response.Fail(c, err)
+		return
+	}
+	response.Ok(c, dto.EmptyResponse{})
 }

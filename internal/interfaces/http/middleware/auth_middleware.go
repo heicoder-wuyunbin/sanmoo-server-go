@@ -14,8 +14,6 @@ import (
 const (
 	CtxUserIDKey   = "ctx_user_id"
 	CtxUsernameKey = "ctx_username"
-	CtxRoleIDKey   = "ctx_role_id"
-	CtxRoleNameKey = "ctx_role_name"
 )
 
 func JWTAuth(jwtMgr *security.JWTManager, repo *mysqlrepo.Repository) gin.HandlerFunc {
@@ -46,8 +44,6 @@ func JWTAuth(jwtMgr *security.JWTManager, repo *mysqlrepo.Repository) gin.Handle
 		}
 		c.Set(CtxUserIDKey, claims.UserID)
 		c.Set(CtxUsernameKey, claims.Username)
-		c.Set(CtxRoleIDKey, claims.RoleID)
-		c.Set(CtxRoleNameKey, claims.RoleName)
 		c.Next()
 	}
 }

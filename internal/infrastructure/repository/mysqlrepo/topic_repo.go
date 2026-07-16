@@ -12,6 +12,14 @@ import (
 	"gorm.io/gorm"
 )
 
+type tSearchHistory struct {
+	ID         uint64    `gorm:"column:id;primaryKey"`
+	Keyword    string    `gorm:"column:keyword"`
+	SearchTime time.Time `gorm:"column:search_time"`
+}
+
+func (tSearchHistory) TableName() string { return "t_search_history" }
+
 // ------ Admin CRUD ------
 
 func (r *Repository) ListAllWithCountTopics(ctx context.Context) ([]tTopic, []int64, error) {

@@ -1,7 +1,7 @@
 package middleware
 
 import (
-	rolesvc "sanmoo-server-go/internal/application/role"
+	"sanmoo-server-go/internal/infrastructure/repository/mysqlrepo"
 	apperr "sanmoo-server-go/internal/shared/errors"
 	"sanmoo-server-go/internal/shared/response"
 
@@ -9,12 +9,13 @@ import (
 )
 
 const (
-	CtxRolesKey    = "ctx_roles"
-	CtxPermSetKey  = "ctx_perm_set"
-	CtxIsAdminKey  = "ctx_is_admin"
+	CtxRolesKey   = "ctx_roles"
+	CtxPermSetKey = "ctx_perm_set"
+	CtxIsAdminKey = "ctx_is_admin"
 )
 
-func RequirePerm(roleSvc *rolesvc.Service, permKey string) gin.HandlerFunc {
+// RequireAdmin ensures the user is an admin.
+func RequireAdmin(repo *mysqlrepo.Repository) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID, ok := c.Get(CtxUserIDKey)
 		if !ok {
@@ -23,40 +24,18 @@ func RequirePerm(roleSvc *rolesvc.Service, permKey string) gin.HandlerFunc {
 			return
 		}
 		uid := userID.(uint64)
-
-		roles, err := roleSvc.GetUserRoles(c.Request.Context(), uid)
+		u, err := repo.FindByIDUser(c.Request.Context(), uid)
 		if err != nil {
-			response.Fail(c, apperr.ErrInternal)
+			response.Fail(c, apperr.ErrUnauthorized)
 			c.Abort()
 			return
 		}
-		c.Set(CtxRolesKey, roles)
-
-		isAdmin := false
-		for _, r := range roles {
-			if rolesvc.IsAdminRoleName(r.Name) {
-				isAdmin = true
-				break
-			}
-		}
-		c.Set(CtxIsAdminKey, isAdmin)
-
-		if isAdmin {
-			c.Next()
-			return
-		}
-
-		has, err := roleSvc.HasPermission(c.Request.Context(), uid, permKey)
-		if err != nil {
-			response.Fail(c, apperr.ErrInternal)
-			c.Abort()
-			return
-		}
-		if !has {
+		if !u.IsAdmin {
 			response.Fail(c, apperr.ErrForbidden)
 			c.Abort()
 			return
 		}
+		c.Set(CtxIsAdminKey, true)
 		c.Next()
 	}
 }

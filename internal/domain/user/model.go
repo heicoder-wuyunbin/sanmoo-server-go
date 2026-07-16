@@ -21,8 +21,7 @@ type User struct {
 	LastLoginIp       string     `json:"lastLoginIp"`
 	LoginFailureCount uint       `json:"loginFailureCount"`
 	LockedUntil       *time.Time `json:"lockedUntil,omitempty"`
-	RoleID            uint64     `json:"roleId"`
-	RoleName          string     `json:"roleName"`
+	IsAdmin           bool       `json:"isAdmin"`
 	CreateTime        time.Time  `json:"createTime"`
 	UpdateTime        time.Time  `json:"updateTime"`
 }

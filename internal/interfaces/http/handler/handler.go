@@ -5,20 +5,14 @@ import (
 
 	"sanmoo-server-go/internal/application/article"
 	"sanmoo-server-go/internal/application/auth"
-	backupapp "sanmoo-server-go/internal/application/backup"
-	cacheapp "sanmoo-server-go/internal/application/cache"
 	"sanmoo-server-go/internal/application/category"
 	"sanmoo-server-go/internal/application/dashboard"
 	"sanmoo-server-go/internal/application/file"
 	linkapp "sanmoo-server-go/internal/application/link"
-	maintenanceapp "sanmoo-server-go/internal/application/maintenance"
 	mpuserapp "sanmoo-server-go/internal/application/mpuser"
-	permsvc "sanmoo-server-go/internal/application/permission"
-	rolesvc "sanmoo-server-go/internal/application/role"
 	"sanmoo-server-go/internal/application/setting"
 	"sanmoo-server-go/internal/application/tag"
 	"sanmoo-server-go/internal/application/topic"
-	"sanmoo-server-go/internal/application/user"
 
 	"github.com/gin-gonic/gin"
 )
@@ -42,22 +36,16 @@ import (
 
 // Services 聚合所有应用层服务，作为 Handler 的依赖。
 type Services struct {
-	Auth        *auth.Service
-	User        *user.Service
-	Tag         *tag.Service
-	Category    *category.Service
-	Article     *article.Service
-	Topic       *topic.Service
-	Setting     *setting.Service
-	File        *file.Service
-	Dashboard   *dashboard.Service
-	Cache       *cacheapp.Service
-	MPUser      *mpuserapp.Service
-	Backup      *backupapp.Service
-	Link        *linkapp.LinkService
-	Permission  *permsvc.Service
-	Role        *rolesvc.Service
-	Maintenance *maintenanceapp.Service
+	Auth      *auth.Service
+	Tag       *tag.Service
+	Category  *category.Service
+	Article   *article.Service
+	Topic     *topic.Service
+	Setting   *setting.Service
+	File      *file.Service
+	Dashboard *dashboard.Service
+	MPUser    *mpuserapp.Service
+	Link      *linkapp.LinkService
 }
 
 type Handler struct {
