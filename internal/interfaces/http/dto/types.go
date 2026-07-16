@@ -190,7 +190,6 @@ type MPUserListQuery struct {
 	Page    int    `form:"page"`
 	Size    int    `form:"size"`
 	Keyword string `form:"keyword"`
-	TagName string `form:"tagName"`
 }
 
 // 权限管理相关请求 DTO

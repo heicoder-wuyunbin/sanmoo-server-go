@@ -9,8 +9,6 @@ import (
 )
 
 const (
-	CtxRolesKey   = "ctx_roles"
-	CtxPermSetKey = "ctx_perm_set"
 	CtxIsAdminKey = "ctx_is_admin"
 )
 

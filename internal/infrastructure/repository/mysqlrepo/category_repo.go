@@ -2,9 +2,13 @@ package mysqlrepo
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	apperr "sanmoo-server-go/internal/shared/errors"
 	domcategory "sanmoo-server-go/internal/domain/category"
+
+	"gorm.io/gorm"
 )
 
 func (r *Repository) ListAllWithCountCategory(ctx context.Context) ([]domcategory.Category, error) {
@@ -72,6 +76,15 @@ func (r *Repository) CreateCategory(ctx context.Context, c *domcategory.Category
 	return m.ID, nil
 }
 func (r *Repository) UpdateCategory(ctx context.Context, c *domcategory.Category) error {
+	// 检查同名分类是否已存在（排除当前分类 + 未软删除）
+	var dup tCategory
+	err := r.db.WithContext(ctx).Model(&tCategory{}).Where("name=? AND id!=? AND deleted_at IS NULL", c.Name, c.ID).Take(&dup).Error
+	if err == nil {
+		return apperr.New(apperr.ErrConflict.Code, "分类名称已存在")
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	return r.db.WithContext(ctx).Model(&tCategory{}).Where("id=? AND deleted_at IS NULL", c.ID).Update("name", c.Name).Error
 }
 func (r *Repository) DeleteCategory(ctx context.Context, id uint64) error {

@@ -76,6 +76,9 @@ func Register(e *gin.Engine, h *handler.Handler, jwt *security.JWTManager, repo 
 		admin.GET("/topics/:id/articles", h.GetTopicArticles)
 		admin.GET("/articles/published-options", h.GetPublishedArticleOptions)
 
+		// 微信用户管理（轻运营：仅保留列表查询）
+		admin.GET("/mp-users", h.GetMPUsers)
+
 		// 文章管理
 		admin.GET("/articles", h.GetArticles)
 		admin.GET("/articles/export", h.ExportArticles)

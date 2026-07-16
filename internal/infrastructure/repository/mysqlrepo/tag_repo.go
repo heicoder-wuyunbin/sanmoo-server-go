@@ -2,9 +2,13 @@ package mysqlrepo
 
 import (
 	"context"
+	"errors"
 	"time"
 
+	apperr "sanmoo-server-go/internal/shared/errors"
 	domtag "sanmoo-server-go/internal/domain/tag"
+
+	"gorm.io/gorm"
 )
 
 func (r *Repository) ListTags(ctx context.Context, q domtag.ListQuery) ([]domtag.Tag, int64, error) {
@@ -101,6 +105,15 @@ func (r *Repository) CreateTag(ctx context.Context, t *domtag.Tag) (uint64, erro
 	return m.ID, nil
 }
 func (r *Repository) UpdateTag(ctx context.Context, t *domtag.Tag) error {
+	// 检查同名标签是否已存在（排除当前标签 + 未软删除）
+	var dup tTag
+	err := r.db.WithContext(ctx).Model(&tTag{}).Where("name=? AND id!=? AND deleted_at IS NULL", t.Name, t.ID).Take(&dup).Error
+	if err == nil {
+		return apperr.New(apperr.ErrConflict.Code, "标签名称已存在")
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
 	return r.db.WithContext(ctx).Model(&tTag{}).Where("id=? AND deleted_at IS NULL", t.ID).Update("name", t.Name).Error
 }
 func (r *Repository) DeleteTag(ctx context.Context, id uint64) error {

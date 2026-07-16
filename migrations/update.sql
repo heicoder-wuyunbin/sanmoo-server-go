@@ -24,8 +24,8 @@ ALTER TABLE `t_user`
     ADD COLUMN `is_admin` TINYINT(1) NOT NULL DEFAULT 0 COMMENT '是否管理员：0否 1是'
     AFTER `updated_by`;
 
--- Step 2: 将现有用户设为管理员
-UPDATE `t_user` SET `is_admin` = 1 WHERE `id` = 1;
+-- Step 2: 将现有管理员用户设为管理员
+UPDATE `t_user` SET `is_admin` = 1 WHERE `username` = 'admin';
 
 -- Step 3: 删除 RBAC 四表（数据已无依赖）
 DROP TABLE IF EXISTS `t_role_permission`;

@@ -171,6 +171,17 @@ func (r *Repository) UpdateTopic(ctx context.Context, id uint64, name, descripti
 	if count == 0 {
 		return apperr.ErrNotFound
 	}
+
+	// 检查同名专题是否已存在（排除当前专题）
+	var dup tTopic
+	err := r.db.WithContext(ctx).Table("t_topic").Where("name = ? and id != ? and status = 1", name, id).Take(&dup).Error
+	if err == nil {
+		return apperr.New(apperr.ErrConflict.Code, "专题名称已存在")
+	}
+	if !errors.Is(err, gorm.ErrRecordNotFound) {
+		return err
+	}
+
 	updates := map[string]any{"name": name, "description": description, "cover_image": coverImage}
 	return r.db.WithContext(ctx).Table("t_topic").Where("id = ?", id).Updates(updates).Error
 }
