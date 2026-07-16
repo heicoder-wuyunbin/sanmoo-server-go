@@ -172,11 +172,27 @@ func (r *Repository) UpdateTopic(ctx context.Context, id uint64, name, descripti
 		return apperr.ErrNotFound
 	}
 
-	// 检查同名专题是否已存在（排除当前专题）
+	// 检查同名专题是否已存在（排除当前专题），包括软删除的
 	var dup tTopic
-	err := r.db.WithContext(ctx).Table("t_topic").Where("name = ? and id != ? and status = 1", name, id).Take(&dup).Error
+	err := r.db.WithContext(ctx).Table("t_topic").Where("name = ? and id != ?", name, id).Take(&dup).Error
 	if err == nil {
-		return apperr.New(apperr.ErrConflict.Code, "专题名称已存在")
+		if dup.Status == 1 {
+			return apperr.New(apperr.ErrConflict.Code, "专题名称已存在")
+		}
+		// status=0 的软删除专题，检查是否有关联文章
+		var relCount int64
+		if err := r.db.WithContext(ctx).Table("t_article_topic_rel").Where("topic_id = ?", dup.ID).Count(&relCount).Error; err != nil {
+			return err
+		}
+		if relCount > 0 {
+			return apperr.New(apperr.ErrConflict.Code, "专题名称已被占用（存在同名软删除专题且有关联文章）")
+		}
+		// 无关联文章，硬删除僵尸专题，释放名称，然后继续执行更新
+		if err := r.db.WithContext(ctx).Table("t_topic").Where("id = ?", dup.ID).Delete(&tTopic{}).Error; err != nil {
+			return err
+		}
+		// 将 err 重置为 ErrRecordNotFound，使后续检查通过，继续执行 UPDATE
+		err = gorm.ErrRecordNotFound
 	}
 	if !errors.Is(err, gorm.ErrRecordNotFound) {
 		return err
@@ -195,7 +211,8 @@ func (r *Repository) DeleteTopic(ctx context.Context, id uint64) error {
 	if relCount > 0 {
 		return apperr.New(apperr.ErrConflict.Code, "专题正在被文章使用，无法删除")
 	}
-	res := r.db.WithContext(ctx).Table("t_topic").Where("id = ? and status = 1", id).Update("status", 0)
+	// 无关联文章时直接硬删除，避免软删除的僵尸数据占用唯一约束
+	res := r.db.WithContext(ctx).Table("t_topic").Where("id = ? and status = 1", id).Delete(&tTopic{})
 	if res.Error != nil {
 		return res.Error
 	}
@@ -225,7 +242,8 @@ func (r *Repository) BatchDeleteTopics(ctx context.Context, ids []uint64) error 
 		}
 		return apperr.New(apperr.ErrConflict.Code, "专题正在被文章使用，无法删除")
 	}
-	return r.db.WithContext(ctx).Table("t_topic").Where("id in ? and status = 1", ids).Update("status", 0).Error
+	// 无关联文章时直接硬删除
+	return r.db.WithContext(ctx).Table("t_topic").Where("id in ? and status = 1", ids).Delete(&tTopic{}).Error
 }
 
 func stringsJoin(parts []string, sep string) string {

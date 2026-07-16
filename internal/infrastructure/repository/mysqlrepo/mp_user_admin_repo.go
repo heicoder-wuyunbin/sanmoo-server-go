@@ -5,8 +5,6 @@ import (
 	"time"
 
 	dommpuser "sanmoo-server-go/internal/domain/mpuser"
-
-	"gorm.io/gorm"
 )
 
 // ======================== MP User Admin Repository ========================

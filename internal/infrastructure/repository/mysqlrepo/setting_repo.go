@@ -278,7 +278,7 @@ func (r *Repository) UpdateCoreConfig(ctx context.Context, cfg domsetting.CoreCo
 	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		core := convertKeysCamelToSnake(map[string]any(cfg))
 		core["updated_by"] = operator
-		validBrandFields := []string{"blog_name", "author", "introduction", "avatar", "site_url", "rss_enabled", "updated_by"}
+		validBrandFields := []string{"blog_name", "author", "introduction", "avatar", "site_url", "rss_enabled", "contact_email", "updated_by"}
 		filteredBrand := filterValidFields(core, validBrandFields)
 		if v, ok := filteredBrand["rss_enabled"]; ok {
 			switch val := v.(type) {
